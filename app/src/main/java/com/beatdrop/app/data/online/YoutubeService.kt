@@ -308,14 +308,18 @@ object YoutubeService {
         YtClient("IOS", "20.10.04", "com.google.ios.youtube/20.10.04 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)", "5"),
     )
 
-    suspend fun getStream(videoId: String): ResolvedStream? = withContext(Dispatchers.IO) {
-        OnlinePlaybackDebugLog.add("getStream: videoId=$videoId")
-        streamCache[videoId]?.let {
-            if (System.currentTimeMillis() - it.at < CACHE_TTL_MS) {
-                OnlinePlaybackDebugLog.add("getStream: cache hit, ageMs=${System.currentTimeMillis() - it.at}")
-                return@withContext it.stream
+    suspend fun getStream(videoId: String, bypassCache: Boolean = false): ResolvedStream? = withContext(Dispatchers.IO) {
+        OnlinePlaybackDebugLog.add("getStream: videoId=$videoId, bypassCache=$bypassCache")
+        if (!bypassCache) {
+            streamCache[videoId]?.let {
+                if (System.currentTimeMillis() - it.at < CACHE_TTL_MS) {
+                    OnlinePlaybackDebugLog.add("getStream: cache hit, ageMs=${System.currentTimeMillis() - it.at}")
+                    return@withContext it.stream
+                }
+                OnlinePlaybackDebugLog.add("getStream: cache expired, ageMs=${System.currentTimeMillis() - it.at}")
             }
-            OnlinePlaybackDebugLog.add("getStream: cache expired, ageMs=${System.currentTimeMillis() - it.at}")
+        } else {
+            OnlinePlaybackDebugLog.add("getStream: cache bypassed for foreground playback")
         }
         // Warm the cipher (base.js) once so ciphered formats can be deciphered.
         runCatching {
@@ -409,7 +413,13 @@ object YoutubeService {
         val audio = (0 until formats.length())
             .map { formats.getJSONObject(it) }
             .filter { (it.optString("mimeType") + it.optString("type")).lowercase().contains("audio/") }
-            .sortedByDescending { it.optLong("bitrate").coerceAtLeast(it.optLong("averageBitrate")) }
+            .sortedWith(
+                compareByDescending<JSONObject> {
+                    // M4A/MP4 is more reliable across OEM ExoPlayer stacks than WebM/Opus.
+                    val mime = it.optString("mimeType").lowercase()
+                    if (mime.contains("audio/mp4") || mime.contains("mp4a")) 1 else 0
+                }.thenByDescending { it.optLong("bitrate").coerceAtLeast(it.optLong("averageBitrate")) }
+            )
         OnlinePlaybackDebugLog.add("$clientName: audio candidates=${audio.size}")
         for (f in audio) {
             val itag = f.optString("itag")

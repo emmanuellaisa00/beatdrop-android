@@ -106,10 +106,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             _resolving.value = false
             _resolveError.value = null
 
-            val rest = tracks.filterIndexed { i, _ -> i != startIndex }
-            rest.forEach { t ->
-                withTimeoutOrNull(20_000) { resolve(t) }?.let { controller.addToQueue(it) }
-            }
+            OnlinePlaybackDebugLog.add("Queue pre-resolution deferred: selected track must reach stable playback first. queueSize=${tracks.size}")
         }
     }
 
@@ -128,8 +125,8 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             OnlinePlaybackDebugLog.add("Resolve failed: track has no onlineId")
             return null
         }
-        OnlinePlaybackDebugLog.add("YoutubeService.getStream('$id')")
-        val stream = YoutubeService.getStream(id) ?: return null
+        OnlinePlaybackDebugLog.add("YoutubeService.getStream('$id', bypassCache=true)")
+        val stream = YoutubeService.getStream(id, bypassCache = true) ?: return null
         return track.copy(uri = Uri.parse(stream.url), streamUserAgent = stream.userAgent)
     }
 
