@@ -10,7 +10,7 @@ Expected details for the current build:
 
 - File name: `BeatDrop.apk`
 - Size: about `24 MB`
-- SHA256: `37c4f32eae31cf61a141a65c7b97b62253a75275d522106ec9ee3c9d054e9455`
+- SHA256: `994fe5b208f565a4cf2fbf1624656585c3cb487e3f51ec75f2b9d604c343837d`
 - Package: `com.beatdrop.app`
 - minSdk: 23
 - targetSdk: 33
@@ -18,6 +18,8 @@ Expected details for the current build:
 
 Changes in this build:
 
+- Cloud client now matches the new backend schema: `external_items`, `library_items`, `liked_items`, `playlist_items`, `recently_played`, `listening_history`, `search_history`, `user_favorite_artists`, and `followed_artists`.
+- Old cloud table calls (`songs`, `liked_songs`, `playlist_songs`) have been removed from the sync bridge.
 - Home is local/on-device music first.
 - Local songs show a Spotify-style green checkmark.
 - Home has a Songs list and an Explore your catalogue section.
@@ -35,4 +37,4 @@ Changes in this build:
 - Artist onboarding picks are saved locally and displayed in Library.
 - Guest Home/Library no longer says Alex; signed-in users show their display name.
 
-Database note: no database changes are required for this version. Artist picks are local-only. To sync them later, add a `user_favorite_artists` table or a JSON field in user settings/profiles.
+Dashboard reminder: add `beatdrop://auth` under Supabase Authentication → URL Configuration → Redirect URLs for password reset/deep-link auth callbacks.
