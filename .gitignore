@@ -1,0 +1,19 @@
+# Gradle / Android build
+.gradle/
+build/
+app/build/
+captures/
+local.properties
+*.apk
+*.aab
+*.keystore
+keystore.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Secrets
+*.env
+.netrc

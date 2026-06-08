@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.BeatDrop" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#00000000</item>
+        <item name="android:navigationBarColor">#00000000</item>
+        <item name="android:windowBackground">@color/bd_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
