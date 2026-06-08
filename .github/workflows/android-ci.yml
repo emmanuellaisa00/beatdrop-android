@@ -13,6 +13,11 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,7 +45,17 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
+      - name: Decode release keystore
+        if: env.KEYSTORE_BASE64 != ''
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
       - name: Build Android-13-compatible release APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
+          REQUIRE_RELEASE_SIGNING: ${{ github.event_name != 'pull_request' }}
         run: ./gradlew assembleRelease --stacktrace
 
       - name: Verify APK
@@ -49,19 +64,30 @@ jobs:
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -30
 
+      - name: Reject debug-signed release APKs
+        if: github.event_name != 'pull_request'
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          CERT_INFO=$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK")
+          echo "$CERT_INFO"
+          if echo "$CERT_INFO" | grep -q "Android Debug"; then
+            echo "Refusing to publish a debug-signed release APK"
+            exit 1
+          fi
+
       - name: Gather single APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk dist/BeatDrop-Android13.apk
+          cp app/build/outputs/apk/release/*.apk dist/BeatDrop.apk
           ls -lh dist
-          sha256sum dist/BeatDrop-Android13.apk > dist/BeatDrop-Android13.apk.sha256
-          cat dist/BeatDrop-Android13.apk.sha256
+          sha256sum dist/BeatDrop.apk > dist/BeatDrop.apk.sha256
+          cat dist/BeatDrop.apk.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: BeatDrop-apk
-          path: dist/BeatDrop-Android13.apk
+          path: dist/BeatDrop.apk
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -74,10 +100,10 @@ jobs:
             BeatDrop Android 13 compatible APK — build ${{ github.run_number }}
             Commit: ${{ github.sha }}
 
-            This build targets Android 13 (targetSdk 33) and removes API-34-only foreground-service permissions to avoid package-parser issues on Android 13 installers.
+            This build targets Android 13 (targetSdk 33), keeps the Android-13-safe foreground-service permissions, and refuses to publish a debug-signed release APK.
           files: |
-            dist/BeatDrop-Android13.apk
-            dist/BeatDrop-Android13.apk.sha256
+            dist/BeatDrop.apk
+            dist/BeatDrop.apk.sha256
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

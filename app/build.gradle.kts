@@ -11,6 +11,7 @@ val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) FileInputStream(keystorePropsFile).use { load(it) }
 }
+val requireReleaseSigning = (System.getenv("REQUIRE_RELEASE_SIGNING") ?: "false").equals("true", ignoreCase = true)
 
 android {
     namespace = "com.beatdrop.app"
@@ -45,6 +46,9 @@ android {
         release {
             isMinifyEnabled = false
             val rel = signingConfigs.getByName("release")
+            if (requireReleaseSigning && rel.storeFile == null) {
+                error("Release keystore missing. Refusing to publish a debug-signed release APK.")
+            }
             signingConfig = if (rel.storeFile != null) rel else signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

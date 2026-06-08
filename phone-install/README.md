@@ -1,7 +1,7 @@
 # BeatDrop phone install — KNOWN STABLE APK
 
 This direct APK is pinned to the first build that installed successfully on the phone.
-Do not replace this file with experimental/backend/debug builds until phone install is confirmed.
+Do not replace this file with experimental builds or any release APK that was signed with a one-off debug key.
 
 ## Direct APK link
 
@@ -18,4 +18,4 @@ Expected details:
 - targetSdk: 33
 - compileSdk: 34
 
-This is the known-stable install APK. Newer source code can continue changing, but this direct phone APK should stay stable unless the user confirms a newer APK installs.
+This is the known-stable install APK. Newer source code can continue changing, but this direct phone APK should stay stable unless the user confirms a newer, consistently release-signed APK installs.
