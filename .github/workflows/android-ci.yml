@@ -18,6 +18,7 @@ jobs:
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      HAS_RELEASE_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,8 +56,12 @@ jobs:
           KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ env.KEY_ALIAS }}
           KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
-          REQUIRE_RELEASE_SIGNING: ${{ github.event_name != 'pull_request' }}
+          REQUIRE_RELEASE_SIGNING: ${{ github.event_name != 'pull_request' && secrets.KEYSTORE_BASE64 != '' }}
         run: ./gradlew assembleRelease --stacktrace
+
+      - name: Note missing release keystore
+        if: github.event_name != 'pull_request' && env.HAS_RELEASE_KEYSTORE != 'true'
+        run: echo "No release keystore secret is configured. Keeping the pinned phone-install APK unchanged and skipping release publishing."
 
       - name: Verify APK
         run: |
@@ -65,7 +70,7 @@ jobs:
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -30
 
       - name: Reject debug-signed release APKs
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.HAS_RELEASE_KEYSTORE == 'true'
         run: |
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
           CERT_INFO=$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK")
@@ -76,6 +81,7 @@ jobs:
           fi
 
       - name: Gather single APK
+        if: env.HAS_RELEASE_KEYSTORE == 'true'
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/*.apk dist/BeatDrop.apk
@@ -84,6 +90,7 @@ jobs:
           cat dist/BeatDrop.apk.sha256
 
       - name: Upload APK artifact
+        if: env.HAS_RELEASE_KEYSTORE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: BeatDrop-apk
@@ -91,7 +98,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.HAS_RELEASE_KEYSTORE == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
