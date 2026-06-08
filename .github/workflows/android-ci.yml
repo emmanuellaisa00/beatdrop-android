@@ -25,8 +25,8 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android 13 SDK packages
-        run: sdkmanager "platforms;android-33" "build-tools;33.0.2" "platform-tools"
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
       - name: Grant gradlew permission
         run: chmod +x ./gradlew
@@ -46,8 +46,8 @@ jobs:
       - name: Verify APK
         run: |
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
-          "$ANDROID_HOME/build-tools/33.0.2/apksigner" verify --verbose --print-certs "$APK"
-          "$ANDROID_HOME/build-tools/33.0.2/aapt" dump badging "$APK" | head -30
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -30
 
       - name: Gather single APK
         run: |
