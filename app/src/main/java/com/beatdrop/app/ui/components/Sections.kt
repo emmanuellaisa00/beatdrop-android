@@ -83,7 +83,7 @@ fun FilterPills(items: List<String>, selected: Int, onSelect: (Int) -> Unit) {
                 Text(
                     items[i],
                     style = BeatType.Pill,
-                    color = if (active) BeatColors.TextPrimary else BeatColors.TextSecondary
+                    color = if (active) Color.White else BeatColors.TextSecondary
                 )
             }
         }
@@ -117,7 +117,7 @@ private fun QuickTile(item: QuickItem, modifier: Modifier = Modifier, onClick: (
             .height(58.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(BeatColors.Surface)
-            .border(1.dp, BeatColors.Surface, RoundedCornerShape(12.dp))
+            .border(1.dp, BeatColors.GlassBorder, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {

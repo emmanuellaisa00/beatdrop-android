@@ -63,7 +63,7 @@ fun TrackRow(
             .fillMaxWidth()
             .padding(horizontal = 10.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (isPlaying) Color(0x12FF375F) else Color.Transparent)
+            .background(if (isPlaying) BeatColors.AccentDim else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -94,7 +94,7 @@ fun TrackRow(
             Text(
                 track.artist,
                 style = BeatType.TrackSub,
-                color = Color(0x7AFFFFFF),
+                color = BeatColors.TextTertiary,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp)
             )
@@ -125,13 +125,13 @@ fun TrackRow(
                 Text(
                     track.durationMs.formatTime(),
                     style = BeatType.TrackSub.copy(fontSize = 13.sp),
-                    color = Color(0x61FFFFFF)
+                    color = BeatColors.TextFaint
                 )
             }
         }
         Icon(
             Icons.Rounded.MoreVert, "More",
-            tint = Color(0x80FFFFFF),
+            tint = BeatColors.TextMuted,
             modifier = Modifier
                 .size(18.dp)
                 .clickable(onClick = moreAction)

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.beatdrop.app.ui.theme.BeatColors
 import androidx.compose.ui.unit.em
+import com.beatdrop.app.ui.theme.BeatThemeController
 import com.beatdrop.app.ui.theme.BeatType
 
 /**
@@ -48,7 +49,9 @@ fun StickyBackBar(
     modifier: Modifier = Modifier,
 ) {
     val bg by animateColorAsState(
-        if (frosted) Color(0xCC08060A) else Color.Transparent,
+        if (frosted) {
+            if (BeatThemeController.isLight) Color(0xF2FFFFFF) else Color(0xCC08060A)
+        } else Color.Transparent,
         label = "bgFrost"
     )
     val titleAlpha by animateFloatAsState(if (frosted) 1f else 0f, label = "titleAlpha")
@@ -107,8 +110,8 @@ private fun CircleIcon(
         modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(Color(0x73000000))
-            .border(1.dp, Color(0x1FFFFFFF), CircleShape)
+            .background(if (BeatThemeController.isLight) Color.White else Color(0x73000000))
+            .border(1.dp, BeatColors.GlassBorder, CircleShape)
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
@@ -116,6 +119,6 @@ private fun CircleIcon(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, desc, tint = Color.White, modifier = Modifier.size(18.dp))
+        Icon(icon, desc, tint = BeatColors.TextPrimary, modifier = Modifier.size(18.dp))
     }
 }

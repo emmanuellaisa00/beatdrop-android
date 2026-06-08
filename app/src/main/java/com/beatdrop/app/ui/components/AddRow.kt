@@ -44,13 +44,13 @@ fun AddRow(
     iconBrush: Brush? = null,
     onClick: () -> Unit,
 ) {
-    val accentBrush = Brush.linearGradient(listOf(Color(0xFFFF375F), Color(0xFFB71F46)))
+    val accentBrush = Brush.linearGradient(listOf(BeatColors.Accent, BeatColors.AccentDeep))
     Row(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0x0FFFFFFF))
-            .border(1.dp, Color(0x12FFFFFF), RoundedCornerShape(16.dp))
+            .background(BeatColors.Surface)
+            .border(1.dp, BeatColors.GlassBorder, RoundedCornerShape(16.dp))
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
@@ -79,11 +79,11 @@ fun AddRow(
             Text(
                 description,
                 style = BeatType.CardSub.copy(fontSize = 12.sp),
-                color = Color(0x7AFFFFFF),
+                color = BeatColors.TextTertiary,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
-        Text("›", style = BeatType.LargeTitle.copy(fontSize = 22.sp, fontWeight = FontWeight.Light), color = Color(0x59FFFFFF))
+        Text("›", style = BeatType.LargeTitle.copy(fontSize = 22.sp, fontWeight = FontWeight.Light), color = BeatColors.TextFaint)
     }
 }

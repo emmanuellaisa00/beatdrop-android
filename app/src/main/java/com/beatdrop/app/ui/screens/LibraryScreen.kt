@@ -175,8 +175,8 @@ private fun ArtistPicker(displayName: String?, onDone: (Set<String>) -> Unit) {
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(18.dp))
-                    .background(if (active) Color(0x22FF375F) else Color(0x14FFFFFF))
-                    .border(1.dp, if (active) BeatColors.Accent else Color(0x17FFFFFF), RoundedCornerShape(18.dp))
+                    .background(if (active) BeatColors.AccentDim else BeatColors.Surface)
+                    .border(1.dp, if (active) BeatColors.Accent else BeatColors.GlassBorder, RoundedCornerShape(18.dp))
                     .clickable {
                         selected = if (active) selected - artist else selected + artist
                     }

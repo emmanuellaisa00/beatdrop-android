@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import com.beatdrop.app.data.model.Track
+import com.beatdrop.app.ui.theme.BeatColors
 import com.beatdrop.app.ui.theme.CoverPalette
 import com.beatdrop.app.ui.theme.brush
 import androidx.compose.material.icons.Icons
@@ -49,7 +49,7 @@ fun CoverArt(
             .then(if (size != null) Modifier.size(size) else Modifier)
             .clip(RoundedCornerShape(corner))
             .background(if (artworkUri == null) fallbackBrush else palette.brush())
-            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(corner)),
+            .border(1.dp, BeatColors.GlassBorder, RoundedCornerShape(corner)),
         contentAlignment = Alignment.Center
     ) {
         val glyph = size?.times(0.38f) ?: glyphSize

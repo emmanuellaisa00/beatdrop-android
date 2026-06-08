@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.ui.theme.AccentBrush
 import com.beatdrop.app.ui.theme.BeatColors
+import com.beatdrop.app.ui.theme.BeatThemeController
 import com.beatdrop.app.ui.theme.BeatType
 
 /**
@@ -69,11 +70,11 @@ fun MiniPlayer(
                 .background(BeatColors.MiniBg)
                 .background(
                     Brush.linearGradient(
-                        0f to Color(0x14FFFFFF),
+                        0f to if (BeatThemeController.isLight) Color(0x66FFFFFF) else Color(0x14FFFFFF),
                         0.5f to Color.Transparent,
                     )
                 )
-                .border(1.dp, Color(0x1FFFFFFF), RoundedCornerShape(20.dp))
+                .border(1.dp, BeatColors.GlassBorder, RoundedCornerShape(20.dp))
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },
@@ -103,13 +104,13 @@ fun MiniPlayer(
                     )
                     Text(
                         track.artist,
-                        style = BeatType.CardSub.copy(color = Color(0x99FFFFFF)),
-                        color = Color(0x99FFFFFF),
+                        style = BeatType.CardSub,
+                        color = BeatColors.TextSecondary,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 1.dp)
                     )
                 }
-                IconCircle(Icons.Rounded.Cast, "Cast", tint = Color(0xE0FFFFFF)) { /* devices */ }
+                IconCircle(Icons.Rounded.Cast, "Cast", tint = BeatColors.TextSecondary) { /* devices */ }
                 IconCircle(
                     if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     if (isPlaying) "Pause" else "Play",

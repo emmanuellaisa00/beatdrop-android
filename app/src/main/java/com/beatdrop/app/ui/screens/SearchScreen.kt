@@ -191,19 +191,19 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClear:
             .padding(horizontal = 20.dp, vertical = 20.dp)
             .height(50.dp)
             .clip(RoundedCornerShape(25.dp))
-            .background(Color(0x14FFFFFF))
-            .border(1.dp, Color(0x17FFFFFF), RoundedCornerShape(25.dp))
+            .background(BeatColors.Surface)
+            .border(1.dp, BeatColors.GlassBorder, RoundedCornerShape(25.dp))
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(Icons.Rounded.Search, "Search", tint = Color(0x8CFFFFFF), modifier = Modifier.size(18.dp))
+        Icon(Icons.Rounded.Search, "Search", tint = BeatColors.TextMuted, modifier = Modifier.size(18.dp))
         Box(Modifier.weight(1f)) {
             if (query.isEmpty()) {
                 Text(
                     "Search online songs, albums, playlists, artists",
                     style = BeatType.CardSub.copy(fontSize = 14.sp),
-                    color = Color(0x73FFFFFF),
+                    color = BeatColors.TextMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -221,7 +221,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClear:
         if (query.isNotEmpty()) {
             Icon(
                 Icons.Rounded.Close, "Clear",
-                tint = Color(0x99FFFFFF),
+tint = BeatColors.TextSecondary,
                 modifier = Modifier.size(18.dp).clickable(onClick = onClear)
             )
         }
@@ -234,7 +234,7 @@ private fun CategoryToggle(category: SearchCategory, onSelect: (SearchCategory) 
         Modifier
             .padding(horizontal = 20.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Color(0x14FFFFFF))
+            .background(BeatColors.Surface)
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
@@ -273,10 +273,10 @@ private fun RecentSearchRow(query: String, onClick: () -> Unit) {
             Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color(0x14FFFFFF)),
+                .background(BeatColors.SurfaceHover),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.Search, null, tint = Color(0x99FFFFFF), modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.Search, null, tint = BeatColors.TextMuted, modifier = Modifier.size(18.dp))
         }
         Text(
             query,
@@ -305,11 +305,11 @@ private fun ArtistResultRow(artist: String, onClick: () -> Unit) {
             Modifier
                 .size(46.dp)
                 .clip(CircleShape)
-                .background(Color(0x14FFFFFF))
-                .border(1.dp, Color(0x17FFFFFF), CircleShape),
+                .background(BeatColors.SurfaceHover)
+                .border(1.dp, BeatColors.GlassBorder, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.Person, null, tint = Color(0xCCFFFFFF), modifier = Modifier.size(22.dp))
+            Icon(Icons.Rounded.Person, null, tint = BeatColors.TextSecondary, modifier = Modifier.size(22.dp))
         }
         Column(Modifier.weight(1f)) {
             Text(
@@ -319,7 +319,7 @@ private fun ArtistResultRow(artist: String, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text("Artist", style = BeatType.TrackSub, color = Color(0x7AFFFFFF))
+            Text("Artist", style = BeatType.TrackSub, color = BeatColors.TextTertiary)
         }
     }
 }

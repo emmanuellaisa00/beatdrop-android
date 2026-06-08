@@ -42,8 +42,8 @@ fun SettingsGroup(title: String? = null, content: @Composable () -> Unit) {
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color(0x0AFFFFFF))
-                .border(1.dp, Color(0x12FFFFFF), RoundedCornerShape(16.dp))
+                .background(BeatColors.Surface)
+                .border(1.dp, BeatColors.GlassBorder, RoundedCornerShape(16.dp))
         ) { content() }
     }
 }
@@ -65,13 +65,13 @@ fun SettingsRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Box(
-            Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color(0x14FFFFFF)),
+            Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(BeatColors.SurfaceHover),
             contentAlignment = Alignment.Center
-        ) { Icon(icon, null, tint = Color(0xD9FFFFFF), modifier = Modifier.size(19.dp)) }
+        ) { Icon(icon, null, tint = BeatColors.TextSecondary, modifier = Modifier.size(19.dp)) }
         Column(Modifier.weight(1f)) {
             Text(title, style = BeatType.TrackTitle, color = BeatColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) {
-                Text(subtitle, style = BeatType.TrackSub, color = Color(0x80FFFFFF), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(subtitle, style = BeatType.TrackSub, color = BeatColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         trailing?.invoke()
@@ -86,9 +86,9 @@ fun BeatSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
         colors = SwitchDefaults.colors(
             checkedThumbColor = Color.White,
             checkedTrackColor = BeatColors.Accent,
-            uncheckedThumbColor = Color(0xCCFFFFFF),
-            uncheckedTrackColor = Color(0x22FFFFFF),
-            uncheckedBorderColor = Color(0x22FFFFFF),
+            uncheckedThumbColor = BeatColors.Surface,
+            uncheckedTrackColor = BeatColors.SurfaceHover,
+            uncheckedBorderColor = BeatColors.GlassBorder,
         )
     )
 }

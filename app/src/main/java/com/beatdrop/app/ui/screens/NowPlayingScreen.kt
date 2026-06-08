@@ -63,6 +63,7 @@ import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.ui.components.CoverArt
 import com.beatdrop.app.ui.theme.AccentBrush
 import com.beatdrop.app.ui.theme.BeatColors
+import com.beatdrop.app.ui.theme.BeatThemeController
 import com.beatdrop.app.ui.theme.BeatType
 
 /** Now Playing — fullscreen, ported 1:1 from #screen-now / .np-* in the HTML. */
@@ -246,24 +247,45 @@ private fun NowPlayingBackground() {
     val haze by transition.animateFloat(
         1f, 1.06f, infiniteRepeatable(tween(9000), RepeatMode.Reverse), label = "haze"
     )
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    0f to Color(0xFF0F2640),
-                    0.5f to Color(0xFF0A1828),
-                    1f to Color(0xFF040A12),
+    if (BeatThemeController.isLight) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color(0xFFFFFBF4),
+                        0.58f to Color(0xFFF3F0E8),
+                        1f to Color(0xFFE8E5DE),
+                    )
                 )
-            )
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(Color(0xFF22405E), Color.Transparent),
-                    center = Offset.Unspecified,
-                    radius = 1100f
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFFDDF8E6), Color.Transparent),
+                        center = Offset.Unspecified,
+                        radius = 1100f
+                    )
                 )
-            )
-    )
+        )
+    } else {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color(0xFF0F2640),
+                        0.5f to Color(0xFF0A1828),
+                        1f to Color(0xFF040A12),
+                    )
+                )
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFF22405E), Color.Transparent),
+                        center = Offset.Unspecified,
+                        radius = 1100f
+                    )
+                )
+        )
+    }
 }
 
 @Composable
