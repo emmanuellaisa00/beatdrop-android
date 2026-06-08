@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.beatdrop.app.data.model.MediaSource
 import com.beatdrop.app.data.model.Track
+import com.beatdrop.app.data.online.OnlinePlaybackDebugLog
 import com.beatdrop.app.data.online.YoutubeService
 import com.beatdrop.app.player.PlaybackState
 import com.beatdrop.app.player.PlayerController
@@ -34,6 +35,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _resolveError = MutableStateFlow<String?>(null)
     val resolveError: StateFlow<String?> = _resolveError
+    val debugLog: StateFlow<List<String>> = OnlinePlaybackDebugLog.lines
 
     private var resolveJob: Job? = null
     private var lastOnlineRequest: Pair<List<Track>, Int>? = null
@@ -70,6 +72,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             resolveJob?.cancel()
             _resolving.value = false
             _resolveError.value = null
+            OnlinePlaybackDebugLog.add("Local play: ${start.title} (${start.id})")
             controller.playQueue(tracks, startIndex)
             return
         }
@@ -77,6 +80,8 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         lastOnlineRequest = tracks to startIndex
         resolveJob?.cancel()
         _resolveError.value = null
+        OnlinePlaybackDebugLog.clear()
+        OnlinePlaybackDebugLog.add("Tap online song: title='${start.title}', artist='${start.artist}', trackId='${start.id}', onlineId='${start.onlineId}', queueSize=${tracks.size}, startIndex=$startIndex")
         _state.value = PlaybackState(
             current = start,
             isPlaying = false,
@@ -87,13 +92,17 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
 
         resolveJob = viewModelScope.launch {
             _resolving.value = true
+            OnlinePlaybackDebugLog.add("Resolve start: timeout=25000ms")
             val resolvedStart = withTimeoutOrNull(25_000) { resolve(start) }
             if (resolvedStart == null) {
                 _resolving.value = false
                 _resolveError.value = "Couldn’t load this song. Check connection or tap Retry."
+                OnlinePlaybackDebugLog.add("Resolve failed: no stream returned before timeout or all strategies failed")
                 return@launch
             }
+            OnlinePlaybackDebugLog.add("Resolve success: uriHost='${resolvedStart.uri.host}', userAgent='${resolvedStart.streamUserAgent.orEmpty().take(80)}'")
             controller.playQueue(listOf(resolvedStart), 0)
+            OnlinePlaybackDebugLog.add("Submitted resolved track to MediaController")
             _resolving.value = false
             _resolveError.value = null
 
@@ -105,13 +114,21 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun retryOnline() {
-        val (tracks, index) = lastOnlineRequest ?: return
+        val (tracks, index) = lastOnlineRequest ?: run {
+            OnlinePlaybackDebugLog.add("Retry ignored: no last online request")
+            return
+        }
+        OnlinePlaybackDebugLog.add("Retry requested")
         play(tracks, index)
     }
 
     private suspend fun resolve(track: Track): Track? {
         if (track.source != MediaSource.ONLINE) return track
-        val id = track.onlineId ?: return null
+        val id = track.onlineId ?: run {
+            OnlinePlaybackDebugLog.add("Resolve failed: track has no onlineId")
+            return null
+        }
+        OnlinePlaybackDebugLog.add("YoutubeService.getStream('$id')")
         val stream = YoutubeService.getStream(id) ?: return null
         return track.copy(uri = Uri.parse(stream.url), streamUserAgent = stream.userAgent)
     }

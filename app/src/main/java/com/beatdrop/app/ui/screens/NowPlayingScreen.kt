@@ -46,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -53,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -80,10 +82,12 @@ fun NowPlayingScreen(
     isLiked: Boolean = false,
     isResolving: Boolean = false,
     resolveError: String? = null,
+    debugLogText: String = "",
     onRetry: () -> Unit = {},
     onToggleLike: () -> Unit = {},
 ) {
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs) else 0f
+    val clipboard = LocalClipboardManager.current
 
     Box(Modifier.fillMaxSize()) {
         NowPlayingBackground()
@@ -178,16 +182,19 @@ fun NowPlayingScreen(
                         modifier = Modifier.weight(1f).padding(end = 12.dp),
                         maxLines = 2,
                     )
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(Color(0x22FF375F))
-                            .border(1.dp, BeatColors.Accent, RoundedCornerShape(18.dp))
-                            .clickable(onClick = onRetry)
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Text("Retry", style = BeatType.Pill, color = BeatColors.Accent)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DebugPill("Copy logs") { clipboard.setText(AnnotatedString(debugLogText.ifBlank { "No online playback logs yet." })) }
+                        DebugPill("Retry", onRetry)
                     }
+                }
+            } else if (isResolving && debugLogText.isNotBlank()) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, top = 10.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    DebugPill("Copy logs") { clipboard.setText(AnnotatedString(debugLogText)) }
                 }
             }
 
@@ -257,6 +264,20 @@ private fun NowPlayingBackground() {
                 )
             )
     )
+}
+
+@Composable
+private fun DebugPill(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0x22FF375F))
+            .border(1.dp, BeatColors.Accent, RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Text(label, style = BeatType.Pill, color = BeatColors.Accent)
+    }
 }
 
 @Composable

@@ -309,26 +309,47 @@ object YoutubeService {
     )
 
     suspend fun getStream(videoId: String): ResolvedStream? = withContext(Dispatchers.IO) {
+        OnlinePlaybackDebugLog.add("getStream: videoId=$videoId")
         streamCache[videoId]?.let {
-            if (System.currentTimeMillis() - it.at < CACHE_TTL_MS) return@withContext it.stream
+            if (System.currentTimeMillis() - it.at < CACHE_TTL_MS) {
+                OnlinePlaybackDebugLog.add("getStream: cache hit, ageMs=${System.currentTimeMillis() - it.at}")
+                return@withContext it.stream
+            }
+            OnlinePlaybackDebugLog.add("getStream: cache expired, ageMs=${System.currentTimeMillis() - it.at}")
         }
         // Warm the cipher (base.js) once so ciphered formats can be deciphered.
-        runCatching { YoutubeCipher.discoverPlayerJsUrlCached()?.let { YoutubeCipher.ensurePlayer(it) } }
+        runCatching {
+            OnlinePlaybackDebugLog.add("Cipher warmup: discover player JS")
+            YoutubeCipher.discoverPlayerJsUrlCached()?.let {
+                OnlinePlaybackDebugLog.add("Cipher warmup: player JS found")
+                YoutubeCipher.ensurePlayer(it)
+            } ?: OnlinePlaybackDebugLog.add("Cipher warmup: no player JS URL")
+        }.onFailure { OnlinePlaybackDebugLog.add("Cipher warmup failed", it) }
 
         for (c in clients) {
-            val stream = runCatching { tryClient(videoId, c) }.getOrNull()
+            OnlinePlaybackDebugLog.add("Trying Innertube client ${c.name} ${c.version}")
+            val stream = runCatching { tryClient(videoId, c) }
+                .onFailure { OnlinePlaybackDebugLog.add("Client ${c.name} exception", it) }
+                .getOrNull()
             if (stream != null) {
+                OnlinePlaybackDebugLog.add("Client ${c.name} success: host=${runCatching { java.net.URI(stream.url).host }.getOrNull()}")
                 streamCache[videoId] = CacheEntry(stream, System.currentTimeMillis())
                 return@withContext stream
             }
+            OnlinePlaybackDebugLog.add("Client ${c.name} returned no playable audio")
         }
         // Last-ditch: WebView extractor (BotGuard-immune) reads ytInitialPlayerResponse.
-        val viaWebView = runCatching { YoutubeWebViewExtractor.extract(videoId) }.getOrNull()
+        OnlinePlaybackDebugLog.add("Trying WebView extractor fallback")
+        val viaWebView = runCatching { YoutubeWebViewExtractor.extract(videoId) }
+            .onFailure { OnlinePlaybackDebugLog.add("WebView extractor exception", it) }
+            .getOrNull()
         if (viaWebView != null) {
+            OnlinePlaybackDebugLog.add("WebView extractor success: host=${runCatching { java.net.URI(viaWebView).host }.getOrNull()}")
             val s = ResolvedStream(viaWebView, clients.first().ua)
             streamCache[videoId] = CacheEntry(s, System.currentTimeMillis())
             return@withContext s
         }
+        OnlinePlaybackDebugLog.add("getStream failed: all resolver strategies exhausted")
         null
     }
 
@@ -353,16 +374,29 @@ object YoutubeService {
             .build()
 
         val data = http.newCall(req).execute().use { resp ->
+            OnlinePlaybackDebugLog.add("${c.name}: /player HTTP ${resp.code}")
             if (!resp.isSuccessful) return null
             JSONObject(resp.body!!.string())
         }
-        val status = data.optJSONObject("playabilityStatus")?.optString("status")
+        val playability = data.optJSONObject("playabilityStatus")
+        val status = playability?.optString("status")
+        val reason = playability?.optString("reason")
+        OnlinePlaybackDebugLog.add("${c.name}: playability status=${status ?: "missing"}${reason?.takeIf { it.isNotBlank() }?.let { ", reason=$it" }.orEmpty()}")
         if (status != null && status != "OK") return null
 
-        val streaming = data.optJSONObject("streamingData") ?: return null
-        val url = bestAudioUrl(streaming.optJSONArray("adaptiveFormats"))
-            ?: bestAudioUrl(streaming.optJSONArray("formats"))
-            ?: return null
+        val streaming = data.optJSONObject("streamingData") ?: run {
+            OnlinePlaybackDebugLog.add("${c.name}: no streamingData")
+            return null
+        }
+        val adaptive = streaming.optJSONArray("adaptiveFormats")
+        val formats = streaming.optJSONArray("formats")
+        OnlinePlaybackDebugLog.add("${c.name}: formats adaptive=${adaptive?.length() ?: 0}, regular=${formats?.length() ?: 0}")
+        val url = bestAudioUrl(adaptive, c.name)
+            ?: bestAudioUrl(formats, c.name)
+            ?: run {
+                OnlinePlaybackDebugLog.add("${c.name}: no audio URL after format scan")
+                return null
+            }
         return ResolvedStream(url = url, userAgent = c.ua)
     }
 
@@ -370,15 +404,26 @@ object YoutubeService {
      * Pick the highest-bitrate audio format and resolve it via YoutubeCipher,
      * which handles BOTH plain `url` and ciphered `signatureCipher` formats.
      */
-    private suspend fun bestAudioUrl(formats: JSONArray?): String? {
+    private suspend fun bestAudioUrl(formats: JSONArray?, clientName: String): String? {
         if (formats == null) return null
         val audio = (0 until formats.length())
             .map { formats.getJSONObject(it) }
             .filter { (it.optString("mimeType") + it.optString("type")).lowercase().contains("audio/") }
             .sortedByDescending { it.optLong("bitrate").coerceAtLeast(it.optLong("averageBitrate")) }
+        OnlinePlaybackDebugLog.add("$clientName: audio candidates=${audio.size}")
         for (f in audio) {
-            val resolved = runCatching { YoutubeCipher.resolveFormatUrl(f) }.getOrNull()
-            if (!resolved.isNullOrBlank()) return resolved
+            val itag = f.optString("itag")
+            val mime = f.optString("mimeType").take(48)
+            val hasUrl = f.has("url")
+            val hasCipher = f.has("signatureCipher") || f.has("cipher")
+            OnlinePlaybackDebugLog.add("$clientName: candidate itag=$itag, mime='$mime', url=$hasUrl, cipher=$hasCipher")
+            val resolved = runCatching { YoutubeCipher.resolveFormatUrl(f) }
+                .onFailure { OnlinePlaybackDebugLog.add("$clientName: candidate itag=$itag cipher/url resolve failed", it) }
+                .getOrNull()
+            if (!resolved.isNullOrBlank()) {
+                OnlinePlaybackDebugLog.add("$clientName: candidate itag=$itag resolved")
+                return resolved
+            }
         }
         return null
     }

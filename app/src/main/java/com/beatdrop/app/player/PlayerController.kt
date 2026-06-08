@@ -4,10 +4,13 @@ import android.content.ComponentName
 import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.beatdrop.app.data.model.MediaSource
 import com.beatdrop.app.data.model.Track
+import com.beatdrop.app.data.online.OnlinePlaybackDebugLog
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -65,6 +68,17 @@ class PlayerController(private val context: Context) {
         override fun onEvents(player: Player, events: Player.Events) {
             syncFromController()
         }
+
+        override fun onPlayerError(error: PlaybackException) {
+            val track = _state.value.current
+            if (track?.source == MediaSource.ONLINE) {
+                OnlinePlaybackDebugLog.add(
+                    "Media3 player error: code=${error.errorCode}, name=${error.errorCodeName}, message=${error.message}",
+                    error,
+                )
+            }
+            syncFromController()
+        }
     }
 
     /** Read the live queue out of the player so reorders/removals reflect immediately. */
@@ -108,6 +122,9 @@ class PlayerController(private val context: Context) {
             return
         }
         tracks.forEach { trackById[it.id] = it }
+        tracks.getOrNull(startIndex)?.takeIf { it.source == MediaSource.ONLINE }?.let {
+            OnlinePlaybackDebugLog.add("MediaController playQueue: mediaId=${it.id}, uriHost=${it.uri.host}, startIndex=$startIndex, queueSize=${tracks.size}")
+        }
         c.setMediaItems(tracks.map { it.toMediaItem() }, startIndex, 0L)
         c.prepare()
         c.play()
