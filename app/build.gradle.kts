@@ -21,8 +21,8 @@ android {
         applicationId = "com.beatdrop.app"
         minSdk = 23
         targetSdk = 33
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 7
+        versionName = "1.0.6"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -68,6 +68,10 @@ android {
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+        // Maximum sideload/package-parser compatibility on Android 13 OEM installers.
+        // This makes the built manifest contain extractNativeLibs=true without
+        // putting the deprecated source attribute in AndroidManifest.xml.
+        jniLibs { useLegacyPackaging = true }
     }
 }
 
