@@ -55,6 +55,10 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
     fun play(tracks: List<Track>, startIndex: Int) {
         if (tracks.isEmpty()) return
         val start = tracks[startIndex]
+        // Record the play to the cloud (recently-played + history) — best-effort, no-op if signed out.
+        viewModelScope.launch {
+            com.beatdrop.app.data.cloud.CloudSync.pushPlay(start, (start.durationMs / 1000).toInt())
+        }
         if (start.source != MediaSource.ONLINE) {
             controller.playQueue(tracks, startIndex)
             return

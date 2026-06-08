@@ -44,6 +44,7 @@ fun StickyBackBar(
     frosted: Boolean,
     onBack: () -> Unit,
     onMore: () -> Unit = {},
+    moreIcon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.MoreHoriz,
     modifier: Modifier = Modifier,
 ) {
     val bg by animateColorAsState(
@@ -88,7 +89,7 @@ fun StickyBackBar(
             )
             // more (right)
             CircleIcon(
-                Icons.Rounded.MoreHoriz, "More",
+                moreIcon, "More",
                 modifier = Modifier.align(Alignment.CenterEnd), onClick = onMore
             )
         }

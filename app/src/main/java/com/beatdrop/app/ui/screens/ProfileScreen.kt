@@ -2,6 +2,7 @@ package com.beatdrop.app.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,11 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -38,23 +42,31 @@ import com.beatdrop.app.ui.components.SettingsRow
 import com.beatdrop.app.ui.components.StickyBackBar
 import com.beatdrop.app.ui.theme.BeatColors
 import com.beatdrop.app.ui.theme.BeatType
+import com.beatdrop.app.ui.theme.PillActiveBrush
 
 @Composable
 fun ProfileScreen(
     likedCount: Int,
     downloadCount: Int,
     sleepActiveLabel: String?,
+    isSignedIn: Boolean,
+    displayName: String?,
+    email: String?,
     onBack: () -> Unit,
+    onSignIn: () -> Unit,
+    onSignOut: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenEqualizer: () -> Unit,
     onOpenLiked: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenSleepTimer: () -> Unit,
+    onOpenNotifications: () -> Unit = {},
+    unreadCount: Int = 0,
 ) {
     BackHandler(onBack = onBack)
     Box(Modifier.fillMaxSize().background(BeatColors.Background)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 70.dp, bottom = 200.dp)) {
-            item { ProfileHeader() }
+            item { ProfileHeader(isSignedIn, displayName, email, onSignIn) }
             item { Spacer(Modifier.height(12.dp)) }
             item {
                 SettingsGroup {
@@ -74,7 +86,19 @@ fun ProfileScreen(
             }
             item {
                 SettingsGroup {
+                    SettingsRow(
+                        Icons.Rounded.Notifications, "Notifications",
+                        subtitle = if (unreadCount > 0) "$unreadCount new" else "Up to date",
+                        onClick = onOpenNotifications
+                    )
                     SettingsRow(Icons.Rounded.Settings, "Settings", "Playback, quality, data", onClick = onOpenSettings)
+                }
+            }
+            if (isSignedIn) {
+                item {
+                    SettingsGroup {
+                        SettingsRow(Icons.AutoMirrored.Rounded.Logout, "Sign out", email, onClick = onSignOut)
+                    }
                 }
             }
         }
@@ -83,7 +107,8 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileHeader() {
+private fun ProfileHeader(isSignedIn: Boolean, displayName: String?, email: String?, onSignIn: () -> Unit) {
+    val initial = (displayName?.firstOrNull() ?: email?.firstOrNull() ?: 'A').uppercaseChar().toString()
     Column(
         Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -92,18 +117,38 @@ private fun ProfileHeader() {
             Modifier.size(96.dp).clip(CircleShape)
                 .background(Brush.linearGradient(listOf(Color(0xFFFF375F), Color(0xFFB71F46)))),
             contentAlignment = Alignment.Center
-        ) { Text("A", style = BeatType.LargeTitle.copy(fontSize = 40.sp), color = Color.White) }
+        ) { Text(initial, style = BeatType.LargeTitle.copy(fontSize = 40.sp), color = Color.White) }
         Text(
-            "Alex",
+            if (isSignedIn) (displayName ?: email?.substringBefore("@") ?: "You") else "Guest",
             style = BeatType.LargeTitle.copy(fontSize = 26.sp, letterSpacing = (-0.03f).em),
             color = BeatColors.TextPrimary,
             modifier = Modifier.padding(top = 14.dp)
         )
-        Text(
-            "BeatDrop Premium",
-            style = BeatType.CardSub.copy(fontWeight = FontWeight.SemiBold),
-            color = BeatColors.Accent,
-            modifier = Modifier.padding(top = 4.dp)
-        )
+        if (isSignedIn) {
+            Text(
+                email ?: "BeatDrop Premium",
+                style = BeatType.CardSub.copy(fontWeight = FontWeight.SemiBold),
+                color = BeatColors.TextSecondary,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        } else {
+            // Sign-in CTA for guests — cloud is fully optional.
+            Box(
+                Modifier
+                    .padding(top = 14.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(PillActiveBrush)
+                    .clickable(onClick = onSignIn)
+                    .padding(horizontal = 22.dp, vertical = 11.dp)
+            ) {
+                Text("Sign in to sync", style = BeatType.Pill.copy(fontWeight = FontWeight.Bold), color = Color.White)
+            }
+            Text(
+                "Optional — your music works without an account",
+                style = BeatType.CardSub.copy(fontSize = 11.sp),
+                color = BeatColors.TextMuted,
+                modifier = Modifier.padding(top = 10.dp)
+            )
+        }
     }
 }

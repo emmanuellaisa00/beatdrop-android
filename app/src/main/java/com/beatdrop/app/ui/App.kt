@@ -44,7 +44,11 @@ import com.beatdrop.app.ui.nav.Dock
 import com.beatdrop.app.ui.nav.Navigator
 import com.beatdrop.app.ui.nav.Tab
 import com.beatdrop.app.ui.screens.AlbumDetailScreen
+import kotlinx.serialization.json.contentOrNull
+import com.beatdrop.app.data.cloud.AuthManager
+import com.beatdrop.app.data.cloud.AuthState
 import com.beatdrop.app.ui.screens.AddScreen
+import com.beatdrop.app.ui.screens.AuthScreen
 import com.beatdrop.app.ui.screens.ArtistDetailScreen
 import com.beatdrop.app.ui.screens.DownloadsScreen
 import com.beatdrop.app.ui.screens.EqualizerScreen
@@ -55,6 +59,8 @@ import com.beatdrop.app.ui.screens.LibraryScreen
 import com.beatdrop.app.ui.screens.LikedSongsScreen
 import com.beatdrop.app.ui.screens.LikesViewModel
 import com.beatdrop.app.ui.screens.LyricsScreen
+import com.beatdrop.app.ui.screens.NotificationsAppViewModel
+import com.beatdrop.app.ui.screens.NotificationsScreen
 import com.beatdrop.app.ui.screens.NowPlayingScreen
 import com.beatdrop.app.ui.screens.PlaybackViewModel
 import com.beatdrop.app.ui.screens.PlaylistDetailScreen
@@ -70,6 +76,29 @@ fun BeatDropApp() {
 
     val playback: PlaybackViewModel = viewModel()
     val likes: LikesViewModel = viewModel()
+    val auth: AuthManager = viewModel()
+    val notifVm: NotificationsAppViewModel = viewModel()
+    val unreadCount by notifVm.unread.collectAsStateWithLifecycle()
+    val authState by auth.authState.collectAsStateWithLifecycle()
+    val authLoading by auth.isLoading.collectAsStateWithLifecycle()
+    var showAuth by remember { mutableStateOf(false) }
+    // Auto-dismiss the auth sheet once signed in.
+    androidx.compose.runtime.LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Authenticated -> {
+                showAuth = false
+                likes.syncOnSignIn()          // merge cloud likes + push local-first
+                notifVm.refresh()
+                (authState as? AuthState.Authenticated)?.user?.id?.let { notifVm.listenRealtime(it) }
+            }
+            is AuthState.Unauthenticated -> {
+                com.beatdrop.app.data.cloud.CloudSync.clearCache()
+                notifVm.stopRealtime()
+                notifVm.refresh()
+            }
+            else -> {}
+        }
+    }
     val pb by playback.state.collectAsStateWithLifecycle()
     val resolving by playback.resolving.collectAsStateWithLifecycle()
     val likedTracks by likes.liked.collectAsStateWithLifecycle()
@@ -181,13 +210,23 @@ fun BeatDropApp() {
                     likedCount = likedTracks.size,
                     downloadCount = downloadedTracks.size,
                     sleepActiveLabel = if (sleepRemaining > 0) "Ends in ${formatClock(sleepRemaining)}" else null,
+                    isSignedIn = authState is AuthState.Authenticated,
+                    displayName = (authState as? AuthState.Authenticated)?.user?.let { u ->
+                        (u.userMetadata?.get("display_name") as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+                    },
+                    email = (authState as? AuthState.Authenticated)?.user?.email,
                     onBack = { nav.pop() },
+                    onSignIn = { showAuth = true },
+                    onSignOut = { auth.signOut() },
                     onOpenSettings = { nav.push(Destination.Settings) },
                     onOpenEqualizer = { nav.push(Destination.Equalizer) },
                     onOpenLiked = { nav.push(Destination.LikedSongs) },
                     onOpenDownloads = { nav.push(Destination.Downloads) },
                     onOpenSleepTimer = { showSleepTimer = true },
+                    onOpenNotifications = { nav.push(Destination.Notifications) },
+                    unreadCount = unreadCount,
                 )
+                Destination.Notifications -> NotificationsScreen(onBack = { nav.pop() }, vm = notifVm)
                 Destination.Settings -> SettingsScreen(onBack = { nav.pop() })
                 Destination.Equalizer -> EqualizerScreen(onBack = { nav.pop() })
                 null -> TabRoot(
@@ -319,6 +358,23 @@ fun BeatDropApp() {
                 track = t,
                 onDismiss = { addToPlaylistTrack = null },
             )
+        }
+
+        // ── Auth overlay (optional sign-in for cloud sync) ──
+        AnimatedVisibility(
+            visible = showAuth,
+            enter = fadeIn() + slideInVertically { it },
+            exit = fadeOut() + slideOutVertically { it },
+        ) {
+            AuthScreen(
+                state = authState,
+                isLoading = authLoading,
+                onSignIn = { e, p -> auth.signIn(e, p) },
+                onSignUp = { e, p, dn, un -> auth.signUp(e, p, dn, un) },
+                onReset = { e -> auth.sendPasswordReset(e) },
+                onClose = { showAuth = false },
+            )
+            BackHandler(enabled = showAuth) { showAuth = false }
         }
 
         // ── Sleep timer dialog ──

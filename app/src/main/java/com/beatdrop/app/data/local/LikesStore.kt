@@ -23,13 +23,27 @@ class LikesStore(context: Context) {
 
     fun isLiked(id: String): Boolean = _liked.value.any { it.id == id }
 
-    fun toggle(track: Track) {
+    /** Toggle a like locally and report the new liked-state so callers can mirror to cloud. */
+    fun toggle(track: Track): Boolean {
         val current = _liked.value
-        val next = if (current.any { it.id == track.id }) {
+        val wasLiked = current.any { it.id == track.id }
+        val next = if (wasLiked) {
             current.filterNot { it.id == track.id }
         } else {
             listOf(track) + current // most-recent first
         }
+        save(next)
+        _liked.value = next
+        return !wasLiked
+    }
+
+    /** Merge cloud-liked external ids into the local set (used on sign-in). Local-first union. */
+    fun mergeLikedIds(cloudIds: Set<String>, resolve: (String) -> Track?) {
+        if (cloudIds.isEmpty()) return
+        val have = likedIds
+        val additions = cloudIds.filter { it !in have }.mapNotNull(resolve)
+        if (additions.isEmpty()) return
+        val next = additions + _liked.value
         save(next)
         _liked.value = next
     }

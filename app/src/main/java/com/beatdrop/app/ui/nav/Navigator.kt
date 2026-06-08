@@ -16,6 +16,7 @@ sealed interface Destination {
     data object Profile : Destination
     data object Settings : Destination
     data object Equalizer : Destination
+    data object Notifications : Destination
 }
 
 /**

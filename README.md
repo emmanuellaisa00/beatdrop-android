@@ -188,7 +188,43 @@ ui/
 - [x] Crossfade duration setting (0–12s) in Settings; `CrossfadeSettings` shared
       process-wide and hydrated on app start; bound/released in `PlaybackService`
 
-**Next (after approval)**
+**Milestone 18 (this build) — Cloud backend Phase 0 (Supabase, vendored)**
+- [x] Vendored the Supabase integration kit into `data/cloud/` (client, auth,
+      models, repositories, realtime, storage, view-models), repackaged to
+      `com.beatdrop.app.data.cloud`
+- [x] Added Supabase BOM 3.0.3 + Ktor + kotlinx-serialization plugin/deps
+- [x] Fixed SDK-3.x API mismatches (update(buildJsonObject), notif count,
+      tolerant SessionStatus when, json imports); set deep-link scheme `beatdrop://auth`
+- [x] Not user-facing yet — cloud is **opt-in** (guest by default); auth/sync land next
+
+**Milestone 19 (this build) — Cloud Phase 1 (optional Auth + Profile)**
+- [x] `AuthScreen` — sign in / create account / reset password (Supabase Email),
+      loading + error states; opens only when the user opts in
+- [x] Profile is auth-aware: **Guest** with a "Sign in to sync" CTA by default;
+      shows real name/email + Sign out when authenticated
+- [x] `AuthManager` held at app level; auth overlay auto-dismisses on sign-in;
+      app stays 100% usable signed-out
+
+**Milestone 20 (this build) — Cloud Phase 2 (local-first sync)**
+- [x] `CloudSync` — maps BeatDrop tracks ↔ cloud `songs` via `external_source_id`
+      (`ensureSongId` resolves or lazily creates the catalog row)
+- [x] **Likes**: toggle writes locally first, mirrors to Supabase; on sign-in,
+      cloud likes merge into local (union) and local-only likes push up
+- [x] **History / recently-played**: each play best-effort recorded to the cloud
+- [x] Everything wrapped best-effort so cloud/RLS failures never break local UX;
+      song-id cache cleared on sign-out
+
+**Milestone 21 (this build) — Cloud Phase 3 (social/realtime)**
+- [x] **Notifications** screen + inbox, realtime inserts via `NotificationsRealtimeManager`,
+      unread badge on the Profile bell, mark-all-read; live only when signed in
+- [x] Realtime subscribe/unsubscribe tied to auth state
+- [~] Avatar/cover **uploads** + **follow artists**: `StorageManager` + repos are
+      vendored and ready, but need a remote artist/user catalog + image-picker
+      wiring (deferred — local artists are name-keyed, no cloud UUID yet)
+
+Cloud integration is functional end-to-end for the personal-data path (auth →
+likes/history sync → notifications). Remaining social bits are scoped for later.
+- [ ] Phase 3: public playlists, profiles, followed artists, realtime notifications, uploads
 - [ ] Lock-screen download controls, lyrics romanization, widget
 
 See `REFERENCE_MAP.md` for the exact CSS→Compose value mapping.
