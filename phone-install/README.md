@@ -1,6 +1,6 @@
 # BeatDrop phone install
 
-## Primary parser-hardened APK
+## Primary APK: parser-hardened build 40
 
 Use this first:
 
@@ -10,25 +10,26 @@ Expected details:
 
 - File name: `BeatDrop.apk`
 - Size: about `24 MB`
-- SHA256: `eabcdd1922c18e3ddda8ba3eccc5415caf4825d75a996de1f79315bd26e28509`
-- Source release: `build-37`
+- SHA256: `fd868225f23ab1a6411e215cb82478e2dd7b7696fd852ffc3e877ec95c8cbfb6`
+- Source release: `build-40`
 - Package: `com.beatdrop.app`
+- Version: `1.0.6` / versionCode `7`
 - minSdk: 23
 - targetSdk: 33
 - compileSdk: 34
 - Signed: v1 + v2 + v3 verified by CI
 
-Parser hardening in this build:
+Parser hardening:
 
 - CI verifies APK signature with `apksigner`.
 - CI verifies package badging with `aapt`.
 - CI fails if package/minSdk/targetSdk are unexpected.
 - Release APK is signed with the BeatDrop release certificate, not Android Debug.
-- `android:extractNativeLibs="true"` is forced for maximum OEM installer compatibility.
+- Native libs use legacy packaging via Gradle for OEM installer compatibility.
 
-## Stable fallback APK
+## Fallback APK: last phone-confirmed build
 
-If the primary APK still cannot parse, try this fallback:
+If build 40 cannot parse on your phone, use this fallback:
 
 https://raw.githubusercontent.com/emmanuellaisa00/beatdrop-android/main/phone-install/BeatDrop-stable-fallback.apk
 
@@ -36,15 +37,14 @@ Fallback expected details:
 
 - File name: `BeatDrop-stable-fallback.apk`
 - Size: about `24 MB`
-- SHA256: `fd4661129507c8062dc1598760307e8061eb06ca7c7389ee3cfed2ec96726cd9`
+- SHA256: `eabcdd1922c18e3ddda8ba3eccc5415caf4825d75a996de1f79315bd26e28509`
+- Source release: `build-37`
 
 ## Phone-only install checklist
 
 1. Delete all old BeatDrop APK files from Downloads.
-2. Download the APK using Chrome, not the GitHub app preview.
+2. Download with Chrome, not the GitHub app preview.
 3. Wait until download is fully complete.
 4. File size must be about 24 MB.
 5. Tap the `.apk` file itself, not `.sha256`.
-6. If Android says there is a conflict, uninstall old BeatDrop first.
-
-If both APKs say parsing error, the phone is likely not receiving the real APK bytes or the download manager/file manager is corrupting the file. The server response is `application/octet-stream` and the APK files validate as real APK ZIPs in CI/local checks.
+6. If Android reports a conflict, uninstall old BeatDrop first.
