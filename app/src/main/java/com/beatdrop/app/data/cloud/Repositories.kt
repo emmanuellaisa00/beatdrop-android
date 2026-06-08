@@ -23,7 +23,17 @@ class PlaylistRepository {
         )
     }
     suspend fun updatePlaylist(id: String, update: PlaylistUpdate): Playlist = withContext(Dispatchers.IO) {
-        Playlist(id, Supabase.currentUserId.orEmpty(), update.title ?: "Playlist", update.description, update.coverImageUrl, update.isPublic ?: false, "", "")
+        Playlist(
+            id = id,
+            userId = Supabase.currentUserId.orEmpty(),
+            title = update.title ?: "Playlist",
+            description = update.description,
+            coverImageUrl = update.coverImageUrl,
+            isPublic = update.isPublic ?: false,
+            isCollaborative = update.isCollaborative ?: false,
+            createdAt = "",
+            updatedAt = "",
+        )
     }
     suspend fun deletePlaylist(id: String): Unit = withContext(Dispatchers.IO) {}
     suspend fun searchPlaylists(query: String): List<Playlist> = withContext(Dispatchers.IO) { emptyList() }
