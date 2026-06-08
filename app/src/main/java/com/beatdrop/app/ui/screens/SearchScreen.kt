@@ -162,7 +162,7 @@ fun SearchScreen(
                 }
             } else {
                 item { SectionHeader("Online genres", "") }
-                item { BrowseGrid(genres) { vm.onQueryChange(it.title) } }
+                item { BrowseGrid(genres) { vm.onQueryChange(it.label) } }
                 item { Spacer(Modifier.height(8.dp)) }
             }
         }
