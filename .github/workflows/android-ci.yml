@@ -12,15 +12,7 @@ permissions:
 
 jobs:
   build-and-deploy:
-    name: Build installable APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-      KEYSTORE_PASSWORD_SECRET: ${{ secrets.KEYSTORE_PASSWORD }}
-      KEY_ALIAS_SECRET: ${{ secrets.KEY_ALIAS }}
-      KEY_PASSWORD_SECRET: ${{ secrets.KEY_PASSWORD }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -32,10 +24,6 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
-        run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Grant gradlew permission
         run: chmod +x ./gradlew
@@ -49,72 +37,28 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      - name: Prepare install signing key
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK
         run: |
-          set -euo pipefail
-          STORE="$RUNNER_TEMP/beatdrop-install.keystore"
-          STOREPASS="${KEYSTORE_PASSWORD_SECRET:-android}"
-          ALIAS="${KEY_ALIAS_SECRET:-beatdrop}"
-          KEYPASS="${KEY_PASSWORD_SECRET:-android}"
+          APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -30
 
-          if [ -n "${KEYSTORE_BASE64:-}" ]; then
-            echo "$KEYSTORE_BASE64" | base64 --decode > "$STORE"
-          else
-            keytool -genkeypair \
-              -keystore "$STORE" \
-              -storepass "$STOREPASS" \
-              -keypass "$KEYPASS" \
-              -alias "$ALIAS" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=BeatDrop, OU=Android, O=BeatDrop, L=Nairobi, ST=Nairobi, C=KE"
-          fi
-
-          cat > keystore.properties <<EOF
-          storeFile=$STORE
-          storePassword=$STOREPASS
-          keyAlias=$ALIAS
-          keyPassword=$KEYPASS
-          EOF
-
-          echo "BD_STORE=$STORE" >> "$GITHUB_ENV"
-          echo "BD_STOREPASS=$STOREPASS" >> "$GITHUB_ENV"
-          echo "BD_ALIAS=$ALIAS" >> "$GITHUB_ENV"
-          echo "BD_KEYPASS=$KEYPASS" >> "$GITHUB_ENV"
-
-      - name: Build release APK
-        run: ./gradlew assembleRelease --stacktrace
-
-      - name: Align and manually sign final APK
+      - name: Gather single APK
         run: |
           mkdir -p dist
-          RAW_APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 "$RAW_APK" "$RUNNER_TEMP/BeatDrop-aligned.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
-            --ks "$BD_STORE" \
-            --ks-key-alias "$BD_ALIAS" \
-            --ks-pass "pass:$BD_STOREPASS" \
-            --key-pass "pass:$BD_KEYPASS" \
-            --v1-signing-enabled true \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
-            --out dist/BeatDrop.apk \
-            "$RUNNER_TEMP/BeatDrop-aligned.apk"
-
-      - name: Verify APK signature and manifest
-        run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/BeatDrop.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/BeatDrop.apk | head -30
+          cp app/build/outputs/apk/debug/*.apk dist/app-debug.apk
           ls -lh dist
-          sha256sum dist/BeatDrop.apk > dist/BeatDrop.apk.sha256
-          cat dist/BeatDrop.apk.sha256
+          sha256sum dist/app-debug.apk > dist/app-debug.apk.sha256
+          cat dist/app-debug.apk.sha256
 
-      - name: Upload single APK artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: BeatDrop-apk
-          path: dist/BeatDrop.apk
+          path: dist/app-debug.apk
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -124,13 +68,13 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: BeatDrop Android build ${{ github.run_number }}
           body: |
-            BeatDrop Android v1.0.2 — build ${{ github.run_number }}
+            BeatDrop Android debug APK — build ${{ github.run_number }}
             Commit: ${{ github.sha }}
 
-            Download and install `BeatDrop.apk`. The Actions artifact ZIP contains exactly one APK.
+            This mirrors beatdroppremium's proven install path: download and install `app-debug.apk`.
           files: |
-            dist/BeatDrop.apk
-            dist/BeatDrop.apk.sha256
+            dist/app-debug.apk
+            dist/app-debug.apk.sha256
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
