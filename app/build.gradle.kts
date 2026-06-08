@@ -14,14 +14,14 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "com.beatdrop.app"
-    compileSdk = 35
+    compileSdk = 33
 
     defaultConfig {
         applicationId = "com.beatdrop.app"
-        minSdk = 24
+        minSdk = 23
         targetSdk = 33
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
         vectorDrawables { useSupportLibrary = true }
     }
 
