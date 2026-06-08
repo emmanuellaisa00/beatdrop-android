@@ -1,40 +1,21 @@
-# BeatDrop phone install
+# BeatDrop phone install — KNOWN STABLE APK
 
-Use this direct APK file from your phone if GitHub Releases or Actions artifacts download incorrectly.
+This direct APK is pinned to the first build that installed successfully on the phone.
+Do not replace this file with experimental/backend/debug builds until phone install is confirmed.
 
 ## Direct APK link
 
 https://raw.githubusercontent.com/emmanuellaisa00/beatdrop-android/main/phone-install/BeatDrop.apk
 
-Expected details for the current debug-log build:
+Expected details:
 
 - File name: `BeatDrop.apk`
 - Size: about `24 MB`
-- SHA256: `665456ac075f13fa512aab9838a1f9984b2b35ef74e048ad91e4c3733ba0888c`
+- SHA256: `7fdc1c9727c8225430c5eb29fdde68c86a7bf019138903c9f0801cac1e8f9aac`
+- Source release: `build-13`
 - Package: `com.beatdrop.app`
 - minSdk: 23
 - targetSdk: 33
 - compileSdk: 34
 
-Online playback debug logs:
-
-1. Search and tap an online song.
-2. Now Playing opens instantly.
-3. While it says `Loading audio…`, tap `Copy logs`.
-4. If playback fails, tap `Copy logs` beside Retry.
-5. Paste/send the copied text so the resolver failure can be diagnosed.
-
-This build logs:
-
-- tapped track title/artist/id/onlineId
-- stream resolve start/failure/success
-- YouTube player JS cipher warmup
-- every Innertube client tried
-- HTTP status from `/player`
-- playability status/reason
-- format and audio candidate counts
-- cipher/url resolution failures
-- WebView fallback result
-- Media3 playback errors after URL submission
-
-Also includes previous UX changes: local Home, green local checkmarks, online-only Search filters, recent searches, Now Playing retry, dark no-cover fallback, auth password visibility, cloud Library onboarding, and backend `external_items` client code.
+This is the known-stable install APK. Newer source code can continue changing, but this direct phone APK should stay stable unless the user confirms a newer APK installs.
