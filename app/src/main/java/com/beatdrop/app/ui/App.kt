@@ -108,6 +108,7 @@ fun BeatDropApp() {
         ?.contentOrNull
     val pb by playback.state.collectAsStateWithLifecycle()
     val resolving by playback.resolving.collectAsStateWithLifecycle()
+    val resolveError by playback.resolveError.collectAsStateWithLifecycle()
     val likedTracks by likes.liked.collectAsStateWithLifecycle()
     val downloadedTracks by DownloadManager.downloaded.collectAsStateWithLifecycle()
     val progress = if (pb.durationMs > 0) pb.positionMs.toFloat() / pb.durationMs else 0f
@@ -305,6 +306,8 @@ fun BeatDropApp() {
                     onOpenQueue = { showQueue = true },
                     isLiked = likedTracks.any { it.id == track.id },
                     isResolving = resolving && track.source == MediaSource.ONLINE,
+                    resolveError = resolveError,
+                    onRetry = { playback.retryOnline() },
                     onToggleLike = { likes.toggle(track) },
                 )
             }

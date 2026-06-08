@@ -161,6 +161,12 @@ fun SearchScreen(
                     }
                 }
             } else {
+                if (state.recentSearches.isNotEmpty()) {
+                    item { SectionHeader("Recent searches", "Clear", onAction = vm::clearRecent) }
+                    items(state.recentSearches, key = { it }) { query ->
+                        RecentSearchRow(query = query, onClick = { vm.onQueryChange(query) })
+                    }
+                }
                 item { SectionHeader("Online genres", "") }
                 item { BrowseGrid(genres) { vm.onQueryChange(it.label) } }
                 item { Spacer(Modifier.height(8.dp)) }
@@ -248,6 +254,38 @@ private fun CategoryToggle(category: SearchCategory, onSelect: (SearchCategory) 
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RecentSearchRow(query: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color(0x14FFFFFF)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.Search, null, tint = Color(0x99FFFFFF), modifier = Modifier.size(18.dp))
+        }
+        Text(
+            query,
+            style = BeatType.TrackTitle.copy(fontWeight = FontWeight.SemiBold),
+            color = BeatColors.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

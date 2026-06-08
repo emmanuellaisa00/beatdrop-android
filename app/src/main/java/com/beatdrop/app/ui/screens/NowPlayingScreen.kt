@@ -79,6 +79,8 @@ fun NowPlayingScreen(
     onOpenQueue: () -> Unit,
     isLiked: Boolean = false,
     isResolving: Boolean = false,
+    resolveError: String? = null,
+    onRetry: () -> Unit = {},
     onToggleLike: () -> Unit = {},
 ) {
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs) else 0f
@@ -159,6 +161,34 @@ fun NowPlayingScreen(
                     )
                 }
                 AddButton(isLiked) { onToggleLike() }
+            }
+
+            if (resolveError != null) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, top = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        resolveError,
+                        style = BeatType.TrackSub,
+                        color = BeatColors.Accent,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                        maxLines = 2,
+                    )
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color(0x22FF375F))
+                            .border(1.dp, BeatColors.Accent, RoundedCornerShape(18.dp))
+                            .clickable(onClick = onRetry)
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text("Retry", style = BeatType.Pill, color = BeatColors.Accent)
+                    }
+                }
             }
 
             // ── Progress (5dp bar, 16dp knob, draggable) ──

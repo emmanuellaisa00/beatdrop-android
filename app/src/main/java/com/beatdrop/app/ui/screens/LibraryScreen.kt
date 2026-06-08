@@ -81,9 +81,12 @@ fun LibraryScreen(
             !isSignedIn -> CloudLibraryGate(onSignIn = onSignIn)
             !onboardingDone -> ArtistPicker(
                 displayName = displayName,
-                onDone = {
+                onDone = { artists ->
                     context.getSharedPreferences("beatdrop_cloud_library", Context.MODE_PRIVATE)
-                        .edit().putBoolean("artists_done", true).apply()
+                        .edit()
+                        .putBoolean("artists_done", true)
+                        .putStringSet("favorite_artists", artists)
+                        .apply()
                     onboardingDone = true
                 }
             )
@@ -137,7 +140,7 @@ private fun CloudLibraryGate(onSignIn: () -> Unit) {
 }
 
 @Composable
-private fun ArtistPicker(displayName: String?, onDone: () -> Unit) {
+private fun ArtistPicker(displayName: String?, onDone: (Set<String>) -> Unit) {
     val artists = remember {
         listOf(
             "Drake", "Taylor Swift", "Burna Boy", "SZA", "The Weeknd", "Billie Eilish",
@@ -192,7 +195,7 @@ private fun ArtistPicker(displayName: String?, onDone: () -> Unit) {
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
                     .background(if (selected.size >= 3) PillActiveBrush else androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0x22FFFFFF), Color(0x22FFFFFF))))
-                    .clickable(enabled = selected.size >= 3, onClick = onDone)
+                    .clickable(enabled = selected.size >= 3) { onDone(selected) }
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -213,6 +216,14 @@ private fun OnlineLibraryHome(
     onOpenLiked: () -> Unit,
     onOpenDownloads: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val favoriteArtists = remember {
+        context.getSharedPreferences("beatdrop_cloud_library", Context.MODE_PRIVATE)
+            .getStringSet("favorite_artists", emptySet())
+            .orEmpty()
+            .toList()
+            .sorted()
+    }
     val listState = rememberLazyListState()
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -240,7 +251,11 @@ private fun OnlineLibraryHome(
             item { SectionHeader("Suggestions", "Coming soon") }
             item {
                 Text(
-                    "Your artist picks are saved locally for now. If you want this to sync across devices, add a Supabase favorite-artists table later.",
+                    if (favoriteArtists.isEmpty()) {
+                        "Your artist picks are saved locally for now. If you want this to sync across devices, add a Supabase favorite-artists table later."
+                    } else {
+                        "Artist seeds: ${favoriteArtists.joinToString(", ")}\n\nSaved locally for now. To sync across devices, add a Supabase favorite-artists table later."
+                    },
                     style = BeatType.CardSub.copy(fontWeight = FontWeight.Medium),
                     color = BeatColors.TextSecondary,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),

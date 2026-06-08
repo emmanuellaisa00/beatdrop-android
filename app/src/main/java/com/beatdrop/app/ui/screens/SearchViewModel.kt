@@ -1,6 +1,7 @@
 package com.beatdrop.app.ui.screens
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.beatdrop.app.data.model.Album
@@ -26,14 +27,16 @@ data class SearchUiState(
     val resultsAlbums: List<Album> = emptyList(),
     val resultsPlaylists: List<Album> = emptyList(),
     val resultsArtists: List<String> = emptyList(),
+    val recentSearches: List<String> = emptyList(),
     val hasQuery: Boolean = false,
 )
 
 @OptIn(FlowPreview::class)
 class SearchViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val prefs = app.getSharedPreferences("beatdrop_search", Context.MODE_PRIVATE)
     private val _query = MutableStateFlow("")
-    private val _state = MutableStateFlow(SearchUiState())
+    private val _state = MutableStateFlow(SearchUiState(recentSearches = loadRecent()))
     val state: StateFlow<SearchUiState> = _state
 
     private var searchJob: Job? = null
@@ -57,8 +60,13 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clear() {
         searchJob?.cancel()
-        _state.value = SearchUiState(category = _state.value.category)
+        _state.value = SearchUiState(category = _state.value.category, recentSearches = _state.value.recentSearches)
         _query.value = ""
+    }
+
+    fun clearRecent() {
+        prefs.edit().remove(KEY_RECENT).apply()
+        _state.value = _state.value.copy(recentSearches = emptyList())
     }
 
     private fun runOnline(q: String) {
@@ -86,13 +94,33 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
                 .filter { it.isNotBlank() && !it.equals("Unknown artist", ignoreCase = true) }
                 .distinctBy { it.lowercase() }
                 .take(20)
+            val recent = saveRecent(q)
             _state.value = _state.value.copy(
                 loading = false,
                 resultsTracks = tracks,
                 resultsAlbums = albums,
                 resultsPlaylists = playlists,
                 resultsArtists = artists,
+                recentSearches = recent,
             )
         }
     }
+
+    private fun loadRecent(): List<String> = prefs.getString(KEY_RECENT, "")
+        .orEmpty()
+        .split("\n")
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+
+    private fun saveRecent(query: String): List<String> {
+        val q = query.trim()
+        if (q.isBlank()) return _state.value.recentSearches
+        val next = (listOf(q) + _state.value.recentSearches)
+            .distinctBy { it.lowercase() }
+            .take(8)
+        prefs.edit().putString(KEY_RECENT, next.joinToString("\n")).apply()
+        return next
+    }
+
+    companion object { private const val KEY_RECENT = "recent_queries" }
 }

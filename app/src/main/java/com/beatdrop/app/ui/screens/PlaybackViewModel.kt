@@ -9,12 +9,13 @@ import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.data.online.YoutubeService
 import com.beatdrop.app.player.PlaybackState
 import com.beatdrop.app.player.PlayerController
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Shared player VM: connects to the real ExoPlayer (via PlayerController/MediaController),
@@ -31,13 +32,20 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
     private val _resolving = MutableStateFlow(false)
     val resolving: StateFlow<Boolean> = _resolving
 
+    private val _resolveError = MutableStateFlow<String?>(null)
+    val resolveError: StateFlow<String?> = _resolveError
+
+    private var resolveJob: Job? = null
+    private var lastOnlineRequest: Pair<List<Track>, Int>? = null
+
     init {
         controller.connect()
-        // Mirror controller state
         viewModelScope.launch {
-            controller.state.collect { s -> _state.value = s }
+            controller.state.collect { s ->
+                // Do not overwrite the pending online Now Playing shell while resolving.
+                if (!_resolving.value) _state.value = s
+            }
         }
-        // Poll position ~4x/sec so the progress bar advances smoothly
         viewModelScope.launch {
             while (true) {
                 delay(250)
@@ -49,21 +57,26 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Play a queue. Local tracks play directly. For ONLINE tracks we resolve the
-     * starting track's googlevideo stream first (so playback begins fast), then
-     * resolve the rest in the background and patch them into the live queue.
+     * Play a queue. Local tracks play directly. ONLINE tracks open instantly as a
+     * pending Now Playing item, then resolve their stream in the background.
      */
     fun play(tracks: List<Track>, startIndex: Int) {
         if (tracks.isEmpty()) return
         val start = tracks[startIndex]
-        // Record the play to the cloud (recently-played + history) — best-effort, no-op if signed out.
         viewModelScope.launch {
             com.beatdrop.app.data.cloud.CloudSync.pushPlay(start, (start.durationMs / 1000).toInt())
         }
         if (start.source != MediaSource.ONLINE) {
+            resolveJob?.cancel()
+            _resolving.value = false
+            _resolveError.value = null
             controller.playQueue(tracks, startIndex)
             return
         }
+
+        lastOnlineRequest = tracks to startIndex
+        resolveJob?.cancel()
+        _resolveError.value = null
         _state.value = PlaybackState(
             current = start,
             isPlaying = false,
@@ -71,19 +84,29 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             queue = tracks,
             currentIndex = startIndex,
         )
-        viewModelScope.launch {
+
+        resolveJob = viewModelScope.launch {
             _resolving.value = true
             val resolvedStart = withTimeoutOrNull(25_000) { resolve(start) }
-            if (resolvedStart == null) { _resolving.value = false; return@launch }
-            // Start immediately with just the resolved track…
+            if (resolvedStart == null) {
+                _resolving.value = false
+                _resolveError.value = "Couldn’t load this song. Check connection or tap Retry."
+                return@launch
+            }
             controller.playQueue(listOf(resolvedStart), 0)
             _resolving.value = false
-            // …then resolve the remainder and append, preserving order.
+            _resolveError.value = null
+
             val rest = tracks.filterIndexed { i, _ -> i != startIndex }
             rest.forEach { t ->
                 withTimeoutOrNull(20_000) { resolve(t) }?.let { controller.addToQueue(it) }
             }
         }
+    }
+
+    fun retryOnline() {
+        val (tracks, index) = lastOnlineRequest ?: return
+        play(tracks, index)
     }
 
     private suspend fun resolve(track: Track): Track? {
@@ -98,7 +121,6 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
     fun previous() = controller.previous()
     fun seekTo(ms: Long) = controller.seekTo(ms)
 
-    // Queue operations
     fun jumpTo(index: Int) = controller.jumpTo(index)
     fun playNext(track: Track) = controller.playNext(track)
     fun addToQueue(track: Track) = controller.addToQueue(track)
@@ -108,6 +130,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
     fun cycleRepeat() = controller.cycleRepeat()
 
     override fun onCleared() {
+        resolveJob?.cancel()
         controller.release()
         super.onCleared()
     }
