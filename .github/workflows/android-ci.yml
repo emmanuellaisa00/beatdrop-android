@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-debug:
@@ -41,9 +41,31 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Upload debug APK
+      - name: Gather installable APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/*.apk dist/
+          ls -lh dist
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: beatdrop-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: BeatDrop-apk
+          path: dist/*.apk
           if-no-files-found: error
+
+      - name: Publish GitHub Release with raw APK
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: BeatDrop Android build ${{ github.run_number }}
+          body: |
+            BeatDrop Android debug APK.
+            Commit: ${{ github.sha }}
+
+            Install the `.apk` file from this release, not the zipped Actions artifact.
+          files: dist/*.apk
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
