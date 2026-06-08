@@ -36,8 +36,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.beatdrop.app.data.local.PlaylistStore
 import com.beatdrop.app.data.local.UserPlaylist
+import com.beatdrop.app.data.repository.MusicRepository
 import com.beatdrop.app.ui.components.AddRow
 import com.beatdrop.app.ui.components.CompactHeader
 import com.beatdrop.app.ui.components.HeaderIcon
@@ -52,16 +52,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class AddViewModel(app: Application) : AndroidViewModel(app) {
-    private val store = PlaylistStore(app)
-    private val _playlists = MutableStateFlow(store.all())
+    private val repo = MusicRepository(app)
+    private val _playlists = MutableStateFlow(repo.userPlaylists())
     val playlists: StateFlow<List<UserPlaylist>> = _playlists
 
-    fun refresh() { _playlists.value = store.all() }
+    fun refresh() { _playlists.value = repo.userPlaylists() }
 
     fun createPlaylist(name: String) {
         viewModelScope.launch {
-            store.create(name.ifBlank { "New Playlist" })
-            _playlists.value = store.all()
+            val playlist = repo.createPlaylist(name.ifBlank { "New Playlist" })
+            repo.pushPlaylistMetadata(playlist)
+            _playlists.value = repo.userPlaylists()
         }
     }
 }

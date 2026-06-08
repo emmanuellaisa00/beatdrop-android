@@ -81,6 +81,7 @@ fun BeatDropApp() {
     val unreadCount by notifVm.unread.collectAsStateWithLifecycle()
     val authState by auth.authState.collectAsStateWithLifecycle()
     val authLoading by auth.isLoading.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var showAuth by remember { mutableStateOf(false) }
     // Auto-dismiss the auth sheet once signed in.
     androidx.compose.runtime.LaunchedEffect(authState) {
@@ -88,6 +89,7 @@ fun BeatDropApp() {
             is AuthState.Authenticated -> {
                 showAuth = false
                 likes.syncOnSignIn()          // merge cloud likes + push local-first
+                com.beatdrop.app.data.repository.MusicRepository(context).syncCloudPlaylists()
                 notifVm.refresh()
                 (authState as? AuthState.Authenticated)?.user?.id?.let { notifVm.listenRealtime(it) }
             }
@@ -110,7 +112,6 @@ fun BeatDropApp() {
     var addToPlaylistTrack by remember { mutableStateOf<Track?>(null) }
     var showSleepTimer by remember { mutableStateOf(false) }
     val sleepRemaining by com.beatdrop.app.player.SleepTimer.remainingMs.collectAsStateWithLifecycle()
-    val context = androidx.compose.ui.platform.LocalContext.current
 
     // Shared handlers
     val openAlbum: (Album) -> Unit = { nav.push(Destination.AlbumDetail(it.id)) }

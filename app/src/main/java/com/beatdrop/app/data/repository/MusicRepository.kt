@@ -1,6 +1,7 @@
 package com.beatdrop.app.data.repository
 
 import android.content.Context
+import com.beatdrop.app.data.cloud.CloudSync
 import com.beatdrop.app.data.local.LocalMusicSource
 import com.beatdrop.app.data.local.PlaylistStore
 import com.beatdrop.app.data.local.UserPlaylist
@@ -8,6 +9,7 @@ import com.beatdrop.app.data.model.Album
 import com.beatdrop.app.data.model.Artist
 import com.beatdrop.app.data.model.Shelf
 import com.beatdrop.app.data.model.Track
+import com.beatdrop.app.data.online.DownloadManager
 import com.beatdrop.app.data.online.toTrack
 
 /**
@@ -29,10 +31,66 @@ class MusicRepository(context: Context) {
         playlists.removeTrack(playlistId, trackId)
     fun deletePlaylist(playlistId: String) = playlists.delete(playlistId)
 
+    /** Best-effort cloud mirror for playlist create/rename metadata. */
+    suspend fun pushPlaylistMetadata(playlist: UserPlaylist) {
+        CloudSync.pushPlaylistMetadata(playlist) { localId, cloudId -> playlists.setCloudId(localId, cloudId) }
+    }
+
+    /** Best-effort cloud mirror for adding one track from any global track menu. */
+    suspend fun pushPlaylistTrackAdded(playlistId: String, track: Track) {
+        val playlist = playlists.byId(playlistId) ?: return
+        CloudSync.pushPlaylistTrackAdded(playlist, track) { localId, cloudId -> playlists.setCloudId(localId, cloudId) }
+    }
+
+    /** Pushes an exact local playlist snapshot for all resolvable local/downloaded tracks. */
+    suspend fun pushPlaylistSnapshot(playlistId: String) {
+        val playlist = playlists.byId(playlistId) ?: return
+        val tracksById = allResolvableTracks().associateBy { it.id }
+        CloudSync.pushPlaylistSnapshot(playlist, tracksById) { localId, cloudId -> playlists.setCloudId(localId, cloudId) }
+    }
+
+    /**
+     * Merge-on-login playlist sync. Cloud playlists are pulled/merged into the
+     * local store first, then the merged local snapshots are pushed back. All
+     * cloud failures are swallowed by CloudSync; signed-out users keep a fully
+     * local library.
+     */
+    suspend fun syncCloudPlaylists() {
+        if (!CloudSync.isSignedIn) return
+
+        // Pull first so sign-in merges remote + local rows instead of overwriting
+        // remote-only tracks when a local playlist has the same title.
+        CloudSync.pullPlaylists().forEach { remote ->
+            val localMatch = playlists.byCloudId(remote.cloudId)
+                ?: playlists.all().firstOrNull { it.cloudId == null && it.name.equals(remote.title, ignoreCase = true) }
+            if (localMatch != null) {
+                playlists.upsert(
+                    localMatch.copy(
+                        name = remote.title,
+                        trackIds = (localMatch.trackIds + remote.trackIds).distinct(),
+                        cloudId = remote.cloudId,
+                    )
+                )
+            } else {
+                playlists.upsertCloudPlaylist(remote.cloudId, remote.title, remote.trackIds)
+            }
+        }
+
+        val tracksById = allResolvableTracks().associateBy { it.id }
+        playlists.all().forEach { playlist ->
+            CloudSync.pushPlaylistSnapshot(playlist, tracksById) { localId, cloudId ->
+                playlists.setCloudId(localId, cloudId)
+            }
+        }
+    }
+
+    private suspend fun allResolvableTracks(): List<Track> =
+        (DownloadManager.downloaded.value + local.queryTracks()).distinctBy { it.id }
+
     /** Resolves a user playlist into a renderable Album with real Track objects. */
     suspend fun playlistAsAlbum(playlistId: String): Album? {
         val pl = playlists.byId(playlistId) ?: return null
-        val byId = local.queryTracks().associateBy { it.id }
+        val byId = allResolvableTracks().associateBy { it.id }
         val tracks = pl.trackIds.mapNotNull { byId[it] }
         return Album(
             id = pl.id,

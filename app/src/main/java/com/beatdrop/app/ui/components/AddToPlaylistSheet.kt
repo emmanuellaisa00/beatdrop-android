@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,9 +41,11 @@ import androidx.compose.ui.unit.dp
 import com.beatdrop.app.data.local.PlaylistStore
 import com.beatdrop.app.data.local.UserPlaylist
 import com.beatdrop.app.data.model.Track
+import com.beatdrop.app.data.repository.MusicRepository
 import com.beatdrop.app.ui.theme.BeatColors
 import com.beatdrop.app.ui.theme.BeatType
 import com.beatdrop.app.ui.theme.PillActiveBrush
+import kotlinx.coroutines.launch
 
 /**
  * "Add to playlist" sheet — pick an existing user playlist or create a new one,
@@ -53,6 +56,8 @@ import com.beatdrop.app.ui.theme.PillActiveBrush
 fun AddToPlaylistSheet(track: Track, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val store = remember { PlaylistStore(context) }
+    val repo = remember { MusicRepository(context) }
+    val scope = rememberCoroutineScope()
     var playlists by remember { mutableStateOf(store.all()) }
     var showCreate by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -92,6 +97,7 @@ fun AddToPlaylistSheet(track: Track, onDismiss: () -> Unit) {
                             .clickable(enabled = !contains) {
                                 store.addTracks(pl.id, listOf(track.id))
                                 playlists = store.all()
+                                scope.launch { repo.pushPlaylistTrackAdded(pl.id, track) }
                                 onDismiss()
                             }
                             .padding(horizontal = 20.dp, vertical = 10.dp),
@@ -131,6 +137,7 @@ fun AddToPlaylistSheet(track: Track, onDismiss: () -> Unit) {
                 TextButton(onClick = {
                     val pl = store.create(name.ifBlank { "New Playlist" })
                     store.addTracks(pl.id, listOf(track.id))
+                    scope.launch { repo.pushPlaylistTrackAdded(pl.id, track) }
                     showCreate = false
                     onDismiss()
                 }) { Text("Create & add", color = BeatColors.Accent) }

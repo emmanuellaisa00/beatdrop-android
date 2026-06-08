@@ -10,6 +10,8 @@ data class UserPlaylist(
     val name: String,
     val trackIds: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
+    /** Optional Supabase `playlists.id` used by best-effort cloud sync. */
+    val cloudId: String? = null,
 )
 
 class PlaylistStore(context: Context) {
@@ -28,6 +30,7 @@ class PlaylistStore(context: Context) {
                         name = o.getString("name"),
                         trackIds = (0 until ids.length()).map { ids.getString(it) },
                         createdAt = o.optLong("createdAt", System.currentTimeMillis()),
+                        cloudId = o.optString("cloudId").takeIf { it.isNotBlank() },
                     )
                 )
             }
@@ -41,6 +44,8 @@ class PlaylistStore(context: Context) {
     }
 
     fun byId(id: String): UserPlaylist? = all().firstOrNull { it.id == id }
+
+    fun byCloudId(cloudId: String): UserPlaylist? = all().firstOrNull { it.cloudId == cloudId }
 
     /** Adds tracks (de-duplicated, order preserved) to a playlist and persists. */
     fun addTracks(playlistId: String, trackIds: List<String>) {
@@ -64,6 +69,38 @@ class PlaylistStore(context: Context) {
         save(all().filterNot { it.id == playlistId })
     }
 
+    fun setCloudId(playlistId: String, cloudId: String) {
+        save(all().map { p -> if (p.id == playlistId) p.copy(cloudId = cloudId) else p })
+    }
+
+    /** Upserts a cloud playlist into the local store and merges track ids without duplicates. */
+    fun upsertCloudPlaylist(cloudId: String, name: String, trackIds: List<String>): UserPlaylist {
+        val existing = byCloudId(cloudId)
+        val updated = if (existing != null) {
+            existing.copy(name = name, trackIds = (existing.trackIds + trackIds).distinct(), cloudId = cloudId)
+        } else {
+            UserPlaylist(
+                id = "cloud_$cloudId",
+                name = name.ifBlank { "Cloud Playlist" },
+                trackIds = trackIds.distinct(),
+                createdAt = System.currentTimeMillis(),
+                cloudId = cloudId,
+            )
+        }
+        upsert(updated)
+        return updated
+    }
+
+    fun upsert(playlist: UserPlaylist) {
+        val existing = all()
+        val next = if (existing.any { it.id == playlist.id }) {
+            existing.map { if (it.id == playlist.id) playlist else it }
+        } else {
+            existing + playlist
+        }
+        save(next)
+    }
+
     private fun save(list: List<UserPlaylist>) {
         val arr = JSONArray()
         list.forEach { p ->
@@ -73,6 +110,7 @@ class PlaylistStore(context: Context) {
                     put("name", p.name)
                     put("createdAt", p.createdAt)
                     put("trackIds", JSONArray(p.trackIds))
+                    p.cloudId?.let { put("cloudId", it) }
                 }
             )
         }

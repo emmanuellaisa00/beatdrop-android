@@ -97,6 +97,7 @@ class PlaylistDetailViewModel(app: Application) : AndroidViewModel(app) {
     fun addTracks(trackIds: List<String>) {
         viewModelScope.launch {
             repo.addTracksToPlaylist(currentId, trackIds)
+            repo.pushPlaylistSnapshot(currentId)
             _album.value = repo.playlistAsAlbum(currentId)
         }
     }
