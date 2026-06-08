@@ -19,9 +19,9 @@ android {
     defaultConfig {
         applicationId = "com.beatdrop.app"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.2"
+        targetSdk = 33
+        versionCode = 4
+        versionName = "1.0.3"
         vectorDrawables { useSupportLibrary = true }
     }
 

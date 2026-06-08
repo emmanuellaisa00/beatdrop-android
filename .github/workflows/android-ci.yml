@@ -37,28 +37,28 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build Android-13-compatible release APK
+        run: ./gradlew assembleRelease --stacktrace
 
       - name: Verify APK
         run: |
-          APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -30
 
       - name: Gather single APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/*.apk dist/app-debug.apk
+          cp app/build/outputs/apk/release/*.apk dist/BeatDrop-Android13.apk
           ls -lh dist
-          sha256sum dist/app-debug.apk > dist/app-debug.apk.sha256
-          cat dist/app-debug.apk.sha256
+          sha256sum dist/BeatDrop-Android13.apk > dist/BeatDrop-Android13.apk.sha256
+          cat dist/BeatDrop-Android13.apk.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: BeatDrop-apk
-          path: dist/app-debug.apk
+          path: dist/BeatDrop-Android13.apk
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -66,15 +66,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: BeatDrop Android build ${{ github.run_number }}
+          name: BeatDrop Android 13 compatible build ${{ github.run_number }}
           body: |
-            BeatDrop Android debug APK — build ${{ github.run_number }}
+            BeatDrop Android 13 compatible APK — build ${{ github.run_number }}
             Commit: ${{ github.sha }}
 
-            This mirrors beatdroppremium's proven install path: download and install `app-debug.apk`.
+            This build targets Android 13 (targetSdk 33) and removes API-34-only foreground-service permissions to avoid package-parser issues on Android 13 installers.
           files: |
-            dist/app-debug.apk
-            dist/app-debug.apk.sha256
+            dist/BeatDrop-Android13.apk
+            dist/BeatDrop-Android13.apk.sha256
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
