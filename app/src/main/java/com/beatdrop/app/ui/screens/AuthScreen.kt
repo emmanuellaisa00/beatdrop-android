@@ -25,6 +25,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -211,6 +213,7 @@ private fun AuthField(
     isPassword: Boolean = false,
     keyboard: KeyboardType = KeyboardType.Text,
 ) {
+    var visible by remember { mutableStateOf(false) }
     Box(
         Modifier
             .fillMaxWidth()
@@ -230,10 +233,24 @@ private fun AuthField(
             singleLine = true,
             textStyle = BeatType.CardSub.copy(fontSize = 14.sp, color = Color.White),
             cursorBrush = SolidColor(BeatColors.Accent),
-            visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+            visualTransformation = if (isPassword && !visible) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = ImeAction.Next),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().padding(end = if (isPassword) 34.dp else 0.dp)
         )
+        if (isPassword) {
+            Icon(
+                if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                if (visible) "Hide password" else "Show password",
+                tint = Color(0x99FFFFFF),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(21.dp)
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                    ) { visible = !visible }
+            )
+        }
     }
 }
 

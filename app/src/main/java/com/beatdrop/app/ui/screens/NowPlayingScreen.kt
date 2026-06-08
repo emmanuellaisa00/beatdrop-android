@@ -78,6 +78,7 @@ fun NowPlayingScreen(
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
     isLiked: Boolean = false,
+    isResolving: Boolean = false,
     onToggleLike: () -> Unit = {},
 ) {
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs) else 0f
@@ -147,12 +148,12 @@ fun NowPlayingScreen(
                         maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        track.artist,
+                        if (isResolving) "Loading audio… ${track.artist}" else track.artist,
                         style = BeatType.CardSub.copy(
                             fontSize = 14.sp,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                         ),
-                        color = Color(0x94FFFFFF),
+                        color = if (isResolving) BeatColors.Accent else Color(0x94FFFFFF),
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 5.dp)
                     )
@@ -178,7 +179,7 @@ fun NowPlayingScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CtrlButton(Icons.Rounded.SkipPrevious, "Previous", onClick = onPrevious)
-                PlayRing(isPlaying, onTogglePlay)
+                PlayRing(isPlaying && !isResolving, onTogglePlay)
                 CtrlButton(Icons.Rounded.SkipNext, "Next", onClick = onNext)
             }
 

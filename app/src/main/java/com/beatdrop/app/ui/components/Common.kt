@@ -1,6 +1,7 @@
 package com.beatdrop.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -40,11 +41,15 @@ fun CoverArt(
     modifier: Modifier = Modifier,
 ) {
     val palette = CoverPalette.from(colorKey)
+    val fallbackBrush = Brush.linearGradient(
+        listOf(Color(0xFF202027), Color(0xFF111116), Color(0xFF050507))
+    )
     Box(
         modifier
             .then(if (size != null) Modifier.size(size) else Modifier)
             .clip(RoundedCornerShape(corner))
-            .background(palette.brush()),
+            .background(if (artworkUri == null) fallbackBrush else palette.brush())
+            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(corner)),
         contentAlignment = Alignment.Center
     ) {
         val glyph = size?.times(0.38f) ?: glyphSize

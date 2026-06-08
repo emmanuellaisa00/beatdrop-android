@@ -18,12 +18,18 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.beatdrop.app.data.model.Album
@@ -115,7 +121,20 @@ private fun QuickTile(item: QuickItem, modifier: Modifier = Modifier, onClick: (
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        CoverArt(artworkUri = null, colorKey = item.colorKey, size = 58.dp, corner = 0.dp)
+        Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
+            CoverArt(artworkUri = null, colorKey = item.colorKey, size = 58.dp, corner = 0.dp)
+            val icon = when (item.title) {
+                "Liked Songs" -> Icons.Rounded.Favorite
+                "Downloads" -> Icons.Rounded.DownloadDone
+                else -> Icons.Rounded.MusicNote
+            }
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (item.title == "Liked Songs") Color(0xFFFF375F) else if (item.title == "Downloads") Color(0xFF1DB954) else Color(0x99FFFFFF),
+                modifier = Modifier.size(24.dp),
+            )
+        }
         Text(
             item.title,
             style = BeatType.QuickName,
