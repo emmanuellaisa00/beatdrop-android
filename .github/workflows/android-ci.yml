@@ -78,19 +78,34 @@ jobs:
           keyPassword=$KEYPASS
           EOF
 
+          echo "BD_STORE=$STORE" >> "$GITHUB_ENV"
+          echo "BD_STOREPASS=$STOREPASS" >> "$GITHUB_ENV"
+          echo "BD_ALIAS=$ALIAS" >> "$GITHUB_ENV"
+          echo "BD_KEYPASS=$KEYPASS" >> "$GITHUB_ENV"
+
       - name: Build release APK
         run: ./gradlew assembleRelease --stacktrace
 
-      - name: Verify APK signature and manifest
-        run: |
-          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -30
-
-      - name: Gather single APK
+      - name: Align and manually sign final APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk dist/BeatDrop.apk
+          RAW_APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 "$RAW_APK" "$RUNNER_TEMP/BeatDrop-aligned.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$BD_STORE" \
+            --ks-key-alias "$BD_ALIAS" \
+            --ks-pass "pass:$BD_STOREPASS" \
+            --key-pass "pass:$BD_KEYPASS" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out dist/BeatDrop.apk \
+            "$RUNNER_TEMP/BeatDrop-aligned.apk"
+
+      - name: Verify APK signature and manifest
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/BeatDrop.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/BeatDrop.apk | head -30
           ls -lh dist
           sha256sum dist/BeatDrop.apk > dist/BeatDrop.apk.sha256
           cat dist/BeatDrop.apk.sha256
