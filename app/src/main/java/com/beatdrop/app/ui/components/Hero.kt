@@ -1,6 +1,8 @@
 package com.beatdrop.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -105,7 +107,7 @@ private fun buildLargeTitle(plain: String, accent: String): AnnotatedString = bu
 }
 
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
-    this.then(androidx.compose.foundation.clickable(
+    clickable(
         indication = null,
-        interactionSource = androidx.compose.foundation.interaction.MutableInteractionSource()
-    ) { onClick() })
+        interactionSource = MutableInteractionSource(),
+    ) { onClick() }

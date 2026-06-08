@@ -347,7 +347,9 @@ private fun AddTracksSheet(
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (selected.isEmpty()) Color(0x14FFFFFF) else PillActiveBrush)
+                        .background(
+                            if (selected.isEmpty()) Brush.linearGradient(listOf(Color(0x14FFFFFF), Color(0x14FFFFFF))) else PillActiveBrush
+                        )
                         .clickable(enabled = selected.isNotEmpty()) { onConfirm(selected.toList()) }
                         .padding(horizontal = 18.dp, vertical = 9.dp)
                 ) {

@@ -2,123 +2,87 @@ package com.beatdrop.app.data.cloud
 
 import com.beatdrop.app.data.local.UserPlaylist
 import com.beatdrop.app.data.model.Track
-import io.github.jan.supabase.postgrest.query.Columns
-import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Bridges BeatDrop's local-first data to the Supabase backend.
- *
- * Design rules:
- *  - **Local-first**: callers always write locally first; these methods mirror to
- *    the cloud only when signed in. Every call is best-effort (wrapped in
- *    runCatching) so a cloud/RLS/permission failure never breaks local playback.
- *  - **ID mapping**: BeatDrop tracks use MediaStore ids / "yt_<videoId>". The cloud
- *    `songs` table keys on a UUID, with `external_source_id` for the foreign id.
- *    [ensureSongId] resolves (or lazily creates) the cloud song row for a Track.
- */
+/** Local-first, best-effort Supabase sync bridge. */
 object CloudSync {
-
-    private val likedTable get() = Supabase.postgrest.from("liked_songs")
-    private val songsTable get() = Supabase.postgrest.from("songs")
-    private val historyTable get() = Supabase.postgrest.from("listening_history")
-    private val recentTable get() = Supabase.postgrest.from("recently_played")
-    private val playlistsTable get() = Supabase.postgrest.from("playlists")
-    private val playlistSongsTable get() = Supabase.postgrest.from("playlist_songs")
 
     val isSignedIn: Boolean get() = Supabase.isAuthenticated()
 
-    /** externalId (track.id) -> cloud songs.id */
+    private val client = OkHttpClient()
+    private val jsonMedia = "application/json".toMediaType()
     private val songIdCache = ConcurrentHashMap<String, String>()
-
-    /** local playlist id -> cloud playlists.id */
     private val playlistIdCache = ConcurrentHashMap<String, String>()
 
-    /** Pulled cloud playlist payload, expressed in BeatDrop track ids. */
     data class RemotePlaylist(
         val cloudId: String,
         val title: String,
         val trackIds: List<String>,
     )
 
-    /**
-     * Returns the cloud `songs.id` for a track, creating the catalog row if needed.
-     * Returns null if the catalog isn't reachable/writable (caller treats as no-op).
-     */
     suspend fun ensureSongId(track: Track): String? = withContext(Dispatchers.IO) {
         songIdCache[track.id]?.let { return@withContext it }
         runCatching {
-            // 1) Look up by external_source_id.
-            val existing = songsTable.select(Columns.list("id", "external_source_id")) {
-                filter { eq("external_source_id", track.id) }
-                limit(count = 1)
-            }.decodeList<JsonObject>().firstOrNull()
-            val foundId = existing?.get("id")?.jsonPrimitive?.contentOrNull
-            if (foundId != null) {
-                songIdCache[track.id] = foundId
-                return@runCatching foundId
+            val existing = getArray("songs", "select=id,external_source_id&external_source_id=eq.${enc(track.id)}&limit=1")
+                .firstObject()
+                ?.optString("id")
+                ?.takeIf { it.isNotBlank() }
+            if (existing != null) {
+                songIdCache[track.id] = existing
+                return@runCatching existing
             }
-            // 2) Insert a new catalog row (best-effort; may be blocked by RLS).
-            val inserted = songsTable.insert(
-                buildJsonObject {
-                    put("title", track.title)
-                    put("artist_name", track.artist)
-                    if (track.album.isNotBlank()) put("album_name", track.album)
-                    put("duration", (track.durationMs / 1000).toInt())
-                    track.artworkUri?.let { put("artwork_url", it.toString()) }
-                    put("external_source_id", track.id)
-                }
-            ) { select(Columns.list("id")) }.decodeList<JsonObject>().firstOrNull()
-            val newId = inserted?.get("id")?.jsonPrimitive?.contentOrNull
-            if (newId != null) songIdCache[track.id] = newId
-            newId
+
+            val body = JSONObject().apply {
+                put("title", track.title)
+                put("artist_name", track.artist)
+                if (track.album.isNotBlank()) put("album_name", track.album)
+                put("duration", (track.durationMs / 1000).toInt())
+                track.artworkUri?.let { put("artwork_url", it.toString()) }
+                put("external_source_id", track.id)
+            }
+            val inserted = requestArray(
+                method = "POST",
+                table = "songs",
+                query = "select=id",
+                body = body,
+                prefer = "return=representation"
+            ).firstObject()?.optString("id")?.takeIf { it.isNotBlank() }
+            if (inserted != null) songIdCache[track.id] = inserted
+            inserted
         }.getOrNull()
     }
-
-    // ── Likes ──
 
     suspend fun pushLike(track: Track, liked: Boolean) {
         if (!isSignedIn) return
         runCatching {
             val songId = ensureSongId(track) ?: return
             if (liked) {
-                likedTable.insert(buildJsonObject { put("song_id", songId) })
+                requestArray("POST", "liked_songs", body = JSONObject().put("song_id", songId))
             } else {
-                likedTable.delete { filter { eq("song_id", songId) } }
+                requestArray("DELETE", "liked_songs", "song_id=eq.${enc(songId)}")
             }
         }
     }
 
-    /** Pulls the set of liked external ids (track.id) from the cloud. */
     suspend fun pullLikedExternalIds(): Set<String> = withContext(Dispatchers.IO) {
         if (!isSignedIn) return@withContext emptySet()
         runCatching {
-            // liked_songs joined to songs to recover external_source_id.
-            val rows = likedTable.select(Columns.raw("song_id, songs(external_source_id)")) {
-                order("liked_at", Order.DESCENDING)
-            }.decodeList<JsonObject>()
-            rows.mapNotNull { row ->
-                when (val s = row["songs"]) {
-                    is JsonObject -> s["external_source_id"]?.jsonPrimitive?.contentOrNull
-                    is JsonArray ->
-                        (s.firstOrNull() as? JsonObject)?.get("external_source_id")?.jsonPrimitive?.contentOrNull
-                    else -> null
-                }
-            }.toSet()
+            getArray("liked_songs", "select=song_id,songs(external_source_id)&order=liked_at.desc")
+                .objects()
+                .mapNotNull { row -> row.optJSONObject("songs")?.optString("external_source_id")?.takeIf { it.isNotBlank() } }
+                .toSet()
         }.getOrDefault(emptySet())
     }
 
-    // ── Playlists ──
-
-    /** Ensures a cloud playlist row exists for a local playlist. */
     suspend fun ensurePlaylistId(
         playlist: UserPlaylist,
         onCloudId: (localId: String, cloudId: String) -> Unit = { _, _ -> },
@@ -130,13 +94,14 @@ object CloudSync {
         }
         playlistIdCache[playlist.id]?.let { return@withContext it }
         runCatching {
-            val inserted = playlistsTable.insert(
-                buildJsonObject {
-                    put("title", playlist.name)
-                    put("is_public", false)
-                }
-            ) { select(Columns.list("id")) }.decodeList<JsonObject>().firstOrNull()
-            val cloudId = inserted?.get("id")?.jsonPrimitive?.contentOrNull
+            val body = JSONObject().apply {
+                put("title", playlist.name)
+                put("is_public", false)
+            }
+            val cloudId = requestArray("POST", "playlists", "select=id", body, "return=representation")
+                .firstObject()
+                ?.optString("id")
+                ?.takeIf { it.isNotBlank() }
             if (cloudId != null) {
                 playlistIdCache[playlist.id] = cloudId
                 onCloudId(playlist.id, cloudId)
@@ -145,7 +110,6 @@ object CloudSync {
         }.getOrNull()
     }
 
-    /** Mirrors playlist title/visibility without touching its songs. */
     suspend fun pushPlaylistMetadata(
         playlist: UserPlaylist,
         onCloudId: (localId: String, cloudId: String) -> Unit = { _, _ -> },
@@ -153,13 +117,10 @@ object CloudSync {
         if (!isSignedIn) return
         runCatching {
             val cloudId = ensurePlaylistId(playlist, onCloudId) ?: return
-            playlistsTable.update(
-                buildJsonObject { put("title", playlist.name) }
-            ) { filter { eq("id", cloudId) } }
+            requestArray("PATCH", "playlists", "id=eq.${enc(cloudId)}", JSONObject().put("title", playlist.name))
         }
     }
 
-    /** Adds one locally-added track to its cloud playlist without rewriting the whole playlist. */
     suspend fun pushPlaylistTrackAdded(
         playlist: UserPlaylist,
         track: Track,
@@ -170,17 +131,14 @@ object CloudSync {
             val cloudPlaylistId = ensurePlaylistId(playlist, onCloudId) ?: return
             val songId = ensureSongId(track) ?: return
             val position = playlist.trackIds.indexOf(track.id).takeIf { it >= 0 } ?: playlist.trackIds.lastIndex.coerceAtLeast(0)
-            playlistSongsTable.insert(
-                buildJsonObject {
-                    put("playlist_id", cloudPlaylistId)
-                    put("song_id", songId)
-                    put("position", position)
-                }
-            )
+            requestArray("POST", "playlist_songs", body = JSONObject().apply {
+                put("playlist_id", cloudPlaylistId)
+                put("song_id", songId)
+                put("position", position)
+            })
         }
     }
 
-    /** Replaces the cloud membership with the exact local order for known tracks. */
     suspend fun pushPlaylistSnapshot(
         playlist: UserPlaylist,
         tracksById: Map<String, Track>,
@@ -189,71 +147,54 @@ object CloudSync {
         if (!isSignedIn) return
         runCatching {
             val cloudPlaylistId = ensurePlaylistId(playlist, onCloudId) ?: return
-            playlistsTable.update(buildJsonObject { put("title", playlist.name) }) {
-                filter { eq("id", cloudPlaylistId) }
-            }
-            playlistSongsTable.delete { filter { eq("playlist_id", cloudPlaylistId) } }
+            requestArray("PATCH", "playlists", "id=eq.${enc(cloudPlaylistId)}", JSONObject().put("title", playlist.name))
+            requestArray("DELETE", "playlist_songs", "playlist_id=eq.${enc(cloudPlaylistId)}")
             playlist.trackIds.forEachIndexed { index, trackId ->
                 val track = tracksById[trackId] ?: return@forEachIndexed
                 val songId = ensureSongId(track) ?: return@forEachIndexed
-                playlistSongsTable.insert(
-                    buildJsonObject {
-                        put("playlist_id", cloudPlaylistId)
-                        put("song_id", songId)
-                        put("position", index)
-                    }
-                )
+                requestArray("POST", "playlist_songs", body = JSONObject().apply {
+                    put("playlist_id", cloudPlaylistId)
+                    put("song_id", songId)
+                    put("position", index)
+                })
             }
         }
     }
 
     suspend fun deleteCloudPlaylist(cloudId: String?) {
         if (!isSignedIn || cloudId == null) return
-        runCatching { playlistsTable.delete { filter { eq("id", cloudId) } } }
+        runCatching { requestArray("DELETE", "playlists", "id=eq.${enc(cloudId)}") }
     }
 
-    /** Pulls cloud playlists and their song external ids for merge-on-login. */
     suspend fun pullPlaylists(): List<RemotePlaylist> = withContext(Dispatchers.IO) {
         if (!isSignedIn) return@withContext emptyList()
         runCatching {
-            val rows = playlistsTable.select(Columns.list("id", "title", "created_at")) {
-                Supabase.currentUserId?.let { filter { eq("user_id", it) } }
-                order("created_at", Order.DESCENDING)
-            }.decodeList<JsonObject>()
-            rows.mapNotNull { row ->
-                val id = row["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                val title = row["title"]?.jsonPrimitive?.contentOrNull ?: "Cloud Playlist"
-                val songRows = playlistSongsTable.select(Columns.raw("position, songs(external_source_id)")) {
-                    filter { eq("playlist_id", id) }
-                    order("position", Order.ASCENDING)
-                }.decodeList<JsonObject>()
-                val trackIds = songRows.mapNotNull { songRow ->
-                    when (val s = songRow["songs"]) {
-                        is JsonObject -> s["external_source_id"]?.jsonPrimitive?.contentOrNull
-                        is JsonArray ->
-                            (s.firstOrNull() as? JsonObject)?.get("external_source_id")?.jsonPrimitive?.contentOrNull
-                        else -> null
-                    }
+            getArray(
+                "playlists",
+                "select=id,title,created_at&user_id=eq.${enc(Supabase.currentUserId.orEmpty())}&order=created_at.desc"
+            ).objects().mapNotNull { row ->
+                val id = row.optString("id").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val title = row.optString("title", "Cloud Playlist")
+                val trackIds = getArray(
+                    "playlist_songs",
+                    "select=position,songs(external_source_id)&playlist_id=eq.${enc(id)}&order=position.asc"
+                ).objects().mapNotNull { item ->
+                    item.optJSONObject("songs")?.optString("external_source_id")?.takeIf { it.isNotBlank() }
                 }
-                RemotePlaylist(cloudId = id, title = title, trackIds = trackIds)
+                RemotePlaylist(id, title, trackIds)
             }
         }.getOrDefault(emptyList())
     }
-
-    // ── History / recently played ──
 
     suspend fun pushPlay(track: Track, playDurationSec: Int) {
         if (!isSignedIn) return
         runCatching {
             val songId = ensureSongId(track) ?: return
-            historyTable.insert(buildJsonObject {
+            requestArray("POST", "listening_history", body = JSONObject().apply {
                 put("song_id", songId)
                 put("play_duration", playDurationSec)
             })
-            recentTable.upsert(
-                buildJsonObject { put("song_id", songId) },
-                onConflict = "user_id,song_id"
-            )
+            requestArray("POST", "recently_played", body = JSONObject().put("song_id", songId), prefer = "resolution=merge-duplicates")
         }
     }
 
@@ -261,4 +202,41 @@ object CloudSync {
         songIdCache.clear()
         playlistIdCache.clear()
     }
+
+    private fun getArray(table: String, query: String = "select=*"): JSONArray =
+        requestArray("GET", table, query)
+
+    private fun requestArray(
+        method: String,
+        table: String,
+        query: String = "",
+        body: JSONObject? = null,
+        prefer: String? = null,
+    ): JSONArray {
+        val url = buildString {
+            append(Supabase.SUPABASE_URL).append("/rest/v1/").append(table)
+            if (query.isNotBlank()) append('?').append(query)
+        }
+        val builder = Request.Builder().url(url).headers(Supabase.headers(prefer = prefer))
+        val requestBody = (body?.toString() ?: "{}").toRequestBody(jsonMedia)
+        when (method) {
+            "GET" -> builder.get()
+            "POST" -> builder.post(requestBody)
+            "PATCH" -> builder.patch(requestBody)
+            "DELETE" -> builder.delete()
+        }
+        client.newCall(builder.build()).execute().use { res ->
+            val text = res.body?.string().orEmpty()
+            if (!res.isSuccessful) error(text.ifBlank { res.message })
+            return when {
+                text.isBlank() -> JSONArray()
+                text.trimStart().startsWith("[") -> JSONArray(text)
+                else -> JSONArray().put(JSONObject(text))
+            }
+        }
+    }
+
+    private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
+    private fun JSONArray.firstObject(): JSONObject? = if (length() > 0) optJSONObject(0) else null
+    private fun JSONArray.objects(): List<JSONObject> = (0 until length()).mapNotNull { optJSONObject(it) }
 }
