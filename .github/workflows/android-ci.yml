@@ -63,11 +63,14 @@ jobs:
         if: github.event_name != 'pull_request' && env.HAS_RELEASE_KEYSTORE != 'true'
         run: echo "No release keystore secret is configured. The workflow will publish the pinned phone-install APK instead of a newly built release APK."
 
-      - name: Verify APK
+      - name: Verify APK package parser compatibility
         run: |
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK"
-          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -30
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | tee /tmp/badging.txt
+          grep -q "package: name='com.beatdrop.app'" /tmp/badging.txt
+          grep -q "sdkVersion:'23'" /tmp/badging.txt
+          grep -q "targetSdkVersion:'33'" /tmp/badging.txt
 
       - name: Reject debug-signed release APKs
         if: github.event_name != 'pull_request' && env.HAS_RELEASE_KEYSTORE == 'true'
