@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DataSaverOn
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Tune
@@ -33,10 +36,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.beatdrop.app.data.local.SettingsStore
+import com.beatdrop.app.data.online.OnlinePlaybackDebugLog
 import com.beatdrop.app.ui.components.BeatSwitch
 import com.beatdrop.app.ui.components.SettingsGroup
 import com.beatdrop.app.ui.components.SettingsRow
@@ -52,6 +58,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
     BackHandler(onBack = onBack)
     val s by vm.store.state.collectAsStateWithLifecycle()
+    val onlineLogs by OnlinePlaybackDebugLog.lines.collectAsStateWithLifecycle()
+    val clipboard = LocalClipboardManager.current
 
     Box(Modifier.fillMaxSize().background(BeatColors.Background)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 70.dp, bottom = 200.dp)) {
@@ -79,6 +87,27 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
                 SettingsGroup(title = "Quality") {
                     QualityRow("Streaming", s.streamQuality, vm.store::setStreamQuality)
                     QualityRow("Downloads", s.downloadQuality, vm.store::setDownloadQuality)
+                }
+            }
+            item {
+                SettingsGroup(title = "Diagnostics") {
+                    SettingsRow(
+                        Icons.Rounded.BugReport,
+                        "Online playback logs",
+                        if (onlineLogs.isEmpty()) "No logs yet" else "${onlineLogs.size} entries from last online playback",
+                    )
+                    SettingsRow(
+                        Icons.Rounded.ContentCopy,
+                        "Copy logs",
+                        "Copy resolver and player events",
+                        onClick = { clipboard.setText(AnnotatedString(OnlinePlaybackDebugLog.text().ifBlank { "No online playback logs yet." })) }
+                    )
+                    SettingsRow(
+                        Icons.Rounded.DeleteSweep,
+                        "Clear logs",
+                        "Reset online playback diagnostics",
+                        onClick = { OnlinePlaybackDebugLog.clear() }
+                    )
                 }
             }
         }

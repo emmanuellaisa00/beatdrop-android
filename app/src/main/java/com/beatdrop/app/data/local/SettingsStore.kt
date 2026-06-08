@@ -19,7 +19,7 @@ class SettingsStore(context: Context) {
         val crossfadeSec: Int = 0,            // 0 = off, up to 12s
         val streamQuality: Quality = Quality.AUTO,
         val downloadQuality: Quality = Quality.HIGH,
-        val appearance: Appearance = Appearance.SYSTEM,
+        val appearance: Appearance = Appearance.DARK,
     )
 
     enum class Quality { LOW, NORMAL, HIGH, AUTO }
@@ -51,7 +51,7 @@ class SettingsStore(context: Context) {
         crossfadeSec = prefs.getInt(CROSSFADE, 0),
         streamQuality = runCatching { Quality.valueOf(prefs.getString(STREAM_Q, "AUTO")!!) }.getOrDefault(Quality.AUTO),
         downloadQuality = runCatching { Quality.valueOf(prefs.getString(DL_Q, "HIGH")!!) }.getOrDefault(Quality.HIGH),
-        appearance = runCatching { Appearance.valueOf(prefs.getString(APPEARANCE, "SYSTEM")!!) }.getOrDefault(Appearance.SYSTEM),
+        appearance = runCatching { Appearance.valueOf(prefs.getString(APPEARANCE, "DARK")!!) }.getOrDefault(Appearance.DARK),
     ).also {
         CrossfadeSettings.seconds = it.crossfadeSec
         appearanceMode = it.appearance
@@ -66,7 +66,7 @@ class SettingsStore(context: Context) {
         private const val DL_Q = "download_quality"
         private const val APPEARANCE = "appearance"
 
-        var appearanceMode by mutableStateOf(Appearance.SYSTEM)
+        var appearanceMode by mutableStateOf(Appearance.DARK)
             private set
     }
 }

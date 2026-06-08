@@ -130,9 +130,21 @@ class AuthManager : ViewModel() {
                 _authState.value = Supabase.currentUser?.let { AuthState.Authenticated(it) } ?: AuthState.Unauthenticated
             }
         } catch (e: Exception) {
-            _authState.value = AuthState.Error(e.message ?: fallback)
+            _authState.value = AuthState.Error(cleanAuthError(e.message ?: fallback, fallback))
         } finally {
             _isLoading.value = false
+        }
+    }
+
+    private fun cleanAuthError(message: String, fallback: String): String {
+        val m = message.ifBlank { fallback }
+        val lower = m.lowercase()
+        return when {
+            "email not confirmed" in lower || "email_not_confirmed" in lower || "not verified" in lower ->
+                "Account sign-in is not ready. Try creating the account again or use forgot password."
+            "invalid login" in lower || "invalid_grant" in lower || "invalid credentials" in lower ->
+                "Incorrect email or password."
+            else -> m
         }
     }
 

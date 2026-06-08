@@ -49,6 +49,7 @@ class PlayerController(private val context: Context) {
         val future = MediaController.Builder(context, token).buildAsync()
         future.addListener({
             controller = future.get().also { c ->
+                OnlinePlaybackDebugLog.add("MediaController connected: itemCount=${c.mediaItemCount}, playbackState=${c.playbackStateName()}, isPlaying=${c.isPlaying}")
                 c.addListener(playerListener)
                 pendingQueue?.let { (tracks, startIndex) ->
                     pendingQueue = null
@@ -66,7 +67,35 @@ class PlayerController(private val context: Context) {
 
     private val playerListener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
+            val track = _state.value.current
+            if (track?.source == MediaSource.ONLINE) {
+                OnlinePlaybackDebugLog.add(
+                    "Media3 events: state=${player.playbackStateName()}, isPlaying=${player.isPlaying}, playWhenReady=${player.playWhenReady}, itemIndex=${player.currentMediaItemIndex}, position=${player.currentPosition}, duration=${player.duration}"
+                )
+            }
             syncFromController()
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            val track = _state.value.current
+            if (track?.source == MediaSource.ONLINE) {
+                OnlinePlaybackDebugLog.add("Media3 state changed: ${playbackState.stateName()}")
+            }
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            val track = _state.value.current
+            if (track?.source == MediaSource.ONLINE) {
+                OnlinePlaybackDebugLog.add("Media3 isPlaying=$isPlaying")
+            }
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val id = mediaItem?.mediaId.orEmpty()
+            val track = trackById[id]
+            if (track?.source == MediaSource.ONLINE) {
+                OnlinePlaybackDebugLog.add("Media3 media item transition: mediaId=$id, reason=$reason")
+            }
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -184,6 +213,16 @@ class PlayerController(private val context: Context) {
             else -> Player.REPEAT_MODE_OFF
         }
     }
+}
+
+private fun Player.playbackStateName(): String = playbackState.stateName()
+
+private fun Int.stateName(): String = when (this) {
+    Player.STATE_IDLE -> "IDLE"
+    Player.STATE_BUFFERING -> "BUFFERING"
+    Player.STATE_READY -> "READY"
+    Player.STATE_ENDED -> "ENDED"
+    else -> "UNKNOWN($this)"
 }
 
 private fun Track.toMediaItem(): MediaItem =
