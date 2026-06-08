@@ -84,25 +84,25 @@ jobs:
         run: |
           mkdir -p dist
           if [ "$HAS_RELEASE_KEYSTORE" = "true" ]; then
-            cp app/build/outputs/apk/release/*.apk dist/BeatDrop.apk
-            echo "fresh release-signed APK built from this workflow run" > dist/BeatDrop.apk.source.txt
+            cp app/build/outputs/apk/release/*.apk dist/BeatDrop-build-${{ github.run_number }}.apk
+            echo "fresh release-signed APK built from this workflow run" > dist/BeatDrop-build-${{ github.run_number }}.apk.source.txt
           else
-            cp phone-install/BeatDrop.apk dist/BeatDrop.apk
-            echo "pinned known-stable phone-install APK reused because no release keystore is configured" > dist/BeatDrop.apk.source.txt
+            cp phone-install/BeatDrop.apk dist/BeatDrop-build-${{ github.run_number }}.apk
+            echo "pinned known-stable phone-install APK reused because no release keystore is configured" > dist/BeatDrop-build-${{ github.run_number }}.apk.source.txt
           fi
           ls -lh dist
-          sha256sum dist/BeatDrop.apk > dist/BeatDrop.apk.sha256
-          cat dist/BeatDrop.apk.sha256
-          cat dist/BeatDrop.apk.source.txt
+          sha256sum dist/BeatDrop-build-${{ github.run_number }}.apk > dist/BeatDrop-build-${{ github.run_number }}.apk.sha256
+          cat dist/BeatDrop-build-${{ github.run_number }}.apk.sha256
+          cat dist/BeatDrop-build-${{ github.run_number }}.apk.source.txt
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: BeatDrop-apk
           path: |
-            dist/BeatDrop.apk
-            dist/BeatDrop.apk.sha256
-            dist/BeatDrop.apk.source.txt
+            dist/BeatDrop-build-${{ github.run_number }}.apk
+            dist/BeatDrop-build-${{ github.run_number }}.apk.sha256
+            dist/BeatDrop-build-${{ github.run_number }}.apk.source.txt
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -116,12 +116,12 @@ jobs:
             Commit: ${{ github.sha }}
 
             This workflow refuses to publish a newly built debug-signed release APK.
-            If a release keystore is configured, the attached `BeatDrop.apk` is newly built from this commit.
-            If no release keystore is configured, the attached `BeatDrop.apk` is the pinned known-stable `phone-install/BeatDrop.apk` fallback.
+            If a release keystore is configured, the attached `BeatDrop-build-${{ github.run_number }}.apk` is newly built from this commit.
+            If no release keystore is configured, the attached `BeatDrop-build-${{ github.run_number }}.apk` is the pinned known-stable `phone-install/BeatDrop.apk` fallback.
           files: |
-            dist/BeatDrop.apk
-            dist/BeatDrop.apk.sha256
-            dist/BeatDrop.apk.source.txt
+            dist/BeatDrop-build-${{ github.run_number }}.apk
+            dist/BeatDrop-build-${{ github.run_number }}.apk.sha256
+            dist/BeatDrop-build-${{ github.run_number }}.apk.source.txt
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
