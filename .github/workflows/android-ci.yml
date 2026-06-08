@@ -17,6 +17,9 @@ jobs:
     timeout-minutes: 45
     env:
       KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD_SECRET: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS_SECRET: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD_SECRET: ${{ secrets.KEY_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +33,10 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
       - name: Grant gradlew permission
         run: chmod +x ./gradlew
 
@@ -42,23 +49,51 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      - name: Decode release keystore
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
-        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+      - name: Prepare install signing key
+        run: |
+          set -euo pipefail
+          STORE="$RUNNER_TEMP/beatdrop-install.keystore"
+          STOREPASS="${KEYSTORE_PASSWORD_SECRET:-android}"
+          ALIAS="${KEY_ALIAS_SECRET:-beatdrop}"
+          KEYPASS="${KEY_PASSWORD_SECRET:-android}"
+
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$STORE"
+          else
+            keytool -genkeypair \
+              -keystore "$STORE" \
+              -storepass "$STOREPASS" \
+              -keypass "$KEYPASS" \
+              -alias "$ALIAS" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=BeatDrop, OU=Android, O=BeatDrop, L=Nairobi, ST=Nairobi, C=KE"
+          fi
+
+          cat > keystore.properties <<EOF
+          storeFile=$STORE
+          storePassword=$STOREPASS
+          keyAlias=$ALIAS
+          keyPassword=$KEYPASS
+          EOF
 
       - name: Build release APK
-        env:
-          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --stacktrace
+
+      - name: Verify APK signature and manifest
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -30
 
       - name: Gather single APK
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/*.apk dist/BeatDrop.apk
           ls -lh dist
+          sha256sum dist/BeatDrop.apk > dist/BeatDrop.apk.sha256
+          cat dist/BeatDrop.apk.sha256
 
       - name: Upload single APK artifact
         uses: actions/upload-artifact@v4
@@ -77,8 +112,10 @@ jobs:
             BeatDrop Android v1.0.2 — build ${{ github.run_number }}
             Commit: ${{ github.sha }}
 
-            Download and install `BeatDrop.apk`. The Actions artifact ZIP also contains exactly one APK.
-          files: dist/BeatDrop.apk
+            Download and install `BeatDrop.apk`. The Actions artifact ZIP contains exactly one APK.
+          files: |
+            dist/BeatDrop.apk
+            dist/BeatDrop.apk.sha256
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
