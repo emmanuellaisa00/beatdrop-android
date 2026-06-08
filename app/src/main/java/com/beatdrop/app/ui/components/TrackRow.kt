@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -111,11 +112,22 @@ fun TrackRow(
                 onCancel = { cancel(track.id) },
             )
         } else {
-            Text(
-                track.durationMs.formatTime(),
-                style = BeatType.TrackSub.copy(fontSize = 13.sp),
-                color = Color(0x61FFFFFF)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    "On device",
+                    tint = Color(0xFF1DB954),
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    track.durationMs.formatTime(),
+                    style = BeatType.TrackSub.copy(fontSize = 13.sp),
+                    color = Color(0x61FFFFFF)
+                )
+            }
         }
         Icon(
             Icons.Rounded.MoreVert, "More",

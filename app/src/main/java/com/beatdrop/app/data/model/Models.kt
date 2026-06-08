@@ -55,6 +55,7 @@ data class Shelf(
     val items: List<Album>,
 )
 
+
 data class QuickItem(
     val title: String,
     val colorKey: String,

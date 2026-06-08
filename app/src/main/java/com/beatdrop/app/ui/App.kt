@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.CompositionLocalProvider
 import com.beatdrop.app.data.model.Album
+import com.beatdrop.app.data.model.MediaSource
 import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.data.online.DownloadManager
 import com.beatdrop.app.ui.components.LocalCancelDownload
@@ -106,7 +107,6 @@ fun BeatDropApp() {
         ?.let { it as? kotlinx.serialization.json.JsonPrimitive }
         ?.contentOrNull
     val pb by playback.state.collectAsStateWithLifecycle()
-    val resolving by playback.resolving.collectAsStateWithLifecycle()
     val likedTracks by likes.liked.collectAsStateWithLifecycle()
     val downloadedTracks by DownloadManager.downloaded.collectAsStateWithLifecycle()
     val progress = if (pb.durationMs > 0) pb.positionMs.toFloat() / pb.durationMs else 0f
@@ -120,7 +120,15 @@ fun BeatDropApp() {
     // Shared handlers
     val openAlbum: (Album) -> Unit = { nav.push(Destination.AlbumDetail(it.id)) }
     val openPlaylist: (String) -> Unit = { nav.push(Destination.PlaylistDetail(it)) }
-    val playTracks: (List<Track>, Int) -> Unit = { tracks, i -> playback.play(tracks, i) }
+    val playTracks: (List<Track>, Int) -> Unit = { tracks, i ->
+        val tapped = tracks.getOrNull(i)
+        if (tapped != null && tapped.id == pb.current?.id) {
+            showNowPlaying = true
+        } else {
+            if (tapped?.source == MediaSource.ONLINE) showNowPlaying = true
+            playback.play(tracks, i)
+        }
+    }
 
     val trackActions = remember(likedTracks) {
         TrackActions(
@@ -243,6 +251,8 @@ fun BeatDropApp() {
                     onSearch = { nav.selectTab(Tab.Search) },
                     onAdd = { nav.selectTab(Tab.Add) },
                     onOpenArtist = { nav.push(Destination.ArtistDetail(it)) },
+                    onSignIn = { showAuth = true },
+                    isSignedIn = authState is AuthState.Authenticated,
                     displayName = signedInDisplayName,
                 )
             }
@@ -271,17 +281,7 @@ fun BeatDropApp() {
                 .padding(horizontal = 16.dp, vertical = 22.dp)
         )
 
-        // ── Online buffering indicator ──
-        if (resolving) {
-            androidx.compose.foundation.layout.Box(
-                Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    color = com.beatdrop.app.ui.theme.BeatColors.Accent
-                )
-            }
-        }
+        // Online stream resolution is reflected inside Now Playing; no blocking spinner overlay.
 
         // ── Now Playing overlay ──
         AnimatedVisibility(
@@ -410,6 +410,8 @@ private fun TabRoot(
     onSearch: () -> Unit,
     onAdd: () -> Unit,
     onOpenArtist: (String) -> Unit,
+    onSignIn: () -> Unit,
+    isSignedIn: Boolean,
     displayName: String?,
 ) {
     when (tab) {
@@ -419,6 +421,9 @@ private fun TabRoot(
             onOpenDownloads = openDownloads,
             onSearch = onSearch,
             onAdd = onAdd,
+            onPlayTracks = playTracks,
+            currentTrackId = pb.current?.id,
+            isPlaying = pb.isPlaying,
             displayName = displayName,
         )
         Tab.Search -> SearchScreen(
@@ -439,6 +444,8 @@ private fun TabRoot(
             onSearch = onSearch,
             onAdd = onAdd,
             displayName = displayName,
+            isSignedIn = isSignedIn,
+            onSignIn = onSignIn,
         )
         Tab.Add -> {
             val context = androidx.compose.ui.platform.LocalContext.current

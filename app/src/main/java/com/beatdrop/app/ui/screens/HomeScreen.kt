@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.beatdrop.app.data.model.Album
+import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.ui.components.AlbumCarousel
 import com.beatdrop.app.ui.components.CompactHeader
 import com.beatdrop.app.ui.components.FilterPills
@@ -37,6 +39,7 @@ import com.beatdrop.app.ui.components.QuickGrid
 import com.beatdrop.app.ui.components.ScreenBackground
 import com.beatdrop.app.ui.components.ScreenTheme
 import com.beatdrop.app.ui.components.SectionHeader
+import com.beatdrop.app.ui.components.TrackRow
 import com.beatdrop.app.ui.theme.BeatColors
 import com.beatdrop.app.ui.theme.BeatType
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -51,6 +54,9 @@ fun HomeScreen(
     onOpenDownloads: () -> Unit,
     onSearch: () -> Unit,
     onAdd: () -> Unit,
+    onPlayTracks: (List<Track>, Int) -> Unit,
+    currentTrackId: String? = null,
+    isPlaying: Boolean = false,
     displayName: String? = null,
     vm: HomeViewModel = viewModel(),
 ) {
@@ -72,7 +78,7 @@ fun HomeScreen(
             !perm.status.isGranted -> PermissionPrompt { perm.launchPermissionRequest() }
             state.loading -> com.beatdrop.app.ui.components.SkeletonHomeContent()
             state.isEmpty -> EmptyLibrary()
-            else -> HomeContent(state, onOpenAlbum, onOpenLiked, onOpenDownloads, onSearch, onAdd, displayName)
+            else -> HomeContent(state, onOpenAlbum, onOpenLiked, onOpenDownloads, onSearch, onAdd, onPlayTracks, currentTrackId, isPlaying, displayName)
         }
     }
 }
@@ -85,6 +91,9 @@ private fun HomeContent(
     onOpenDownloads: () -> Unit,
     onSearch: () -> Unit,
     onAdd: () -> Unit,
+    onPlayTracks: (List<Track>, Int) -> Unit,
+    currentTrackId: String?,
+    isPlaying: Boolean,
     displayName: String?,
 ) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
@@ -119,6 +128,18 @@ private fun HomeContent(
                     else albumLookup[q.albumId]?.let(onOpenAlbum)
                 }
             }
+            if (state.tracks.isNotEmpty()) {
+                item { SectionHeader("Songs", "Shuffle") }
+                itemsIndexed(state.tracks.take(25), key = { _, t -> t.id }) { i, track ->
+                    TrackRow(
+                        index = i + 1,
+                        track = track,
+                        isPlaying = track.id == currentTrackId && isPlaying,
+                        onClick = { onPlayTracks(state.tracks, i) },
+                    )
+                }
+            }
+            item { SectionHeader("Explore your catalogue", "") }
             state.shelves.forEach { shelf ->
                 item { SectionHeader(shelf.title, shelf.seeAllLabel) }
                 item { AlbumCarousel(shelf.items, onOpenAlbum) }

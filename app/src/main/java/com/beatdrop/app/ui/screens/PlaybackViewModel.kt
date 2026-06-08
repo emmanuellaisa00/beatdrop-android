@@ -64,6 +64,13 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             controller.playQueue(tracks, startIndex)
             return
         }
+        _state.value = PlaybackState(
+            current = start,
+            isPlaying = false,
+            durationMs = start.durationMs,
+            queue = tracks,
+            currentIndex = startIndex,
+        )
         viewModelScope.launch {
             _resolving.value = true
             val resolvedStart = withTimeoutOrNull(25_000) { resolve(start) }

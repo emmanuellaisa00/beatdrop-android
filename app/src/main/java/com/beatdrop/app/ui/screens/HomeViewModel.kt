@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.beatdrop.app.data.model.QuickItem
 import com.beatdrop.app.data.model.Shelf
+import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.data.repository.MusicRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +17,7 @@ data class HomeUiState(
     val isEmpty: Boolean = false,
     val quick: List<QuickItem> = emptyList(),
     val shelves: List<Shelf> = emptyList(),
+    val tracks: List<Track> = emptyList(),
 )
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
@@ -34,6 +36,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true)
             val shelves = repo.homeShelves()
+            val tracks = repo.allTracks()
             val albums = shelves.firstOrNull()?.items.orEmpty()
             val quick = buildList {
                 add(QuickItem("Liked Songs", "cover-liked", "Liked Songs"))
@@ -46,6 +49,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 isEmpty = shelves.isEmpty(),
                 quick = quick,
                 shelves = shelves,
+                tracks = tracks,
             )
         }
     }
