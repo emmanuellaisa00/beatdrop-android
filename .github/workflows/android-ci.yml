@@ -61,7 +61,7 @@ jobs:
 
       - name: Note missing release keystore
         if: github.event_name != 'pull_request' && env.HAS_RELEASE_KEYSTORE != 'true'
-        run: echo "No release keystore secret is configured. Keeping the pinned phone-install APK unchanged and skipping release publishing."
+        run: echo "No release keystore secret is configured. The workflow will publish the pinned phone-install APK instead of a newly built release APK."
 
       - name: Verify APK
         run: |
@@ -81,24 +81,32 @@ jobs:
           fi
 
       - name: Gather single APK
-        if: env.HAS_RELEASE_KEYSTORE == 'true'
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk dist/BeatDrop.apk
+          if [ "$HAS_RELEASE_KEYSTORE" = "true" ]; then
+            cp app/build/outputs/apk/release/*.apk dist/BeatDrop.apk
+            echo "fresh release-signed APK built from this workflow run" > dist/BeatDrop.apk.source.txt
+          else
+            cp phone-install/BeatDrop.apk dist/BeatDrop.apk
+            echo "pinned known-stable phone-install APK reused because no release keystore is configured" > dist/BeatDrop.apk.source.txt
+          fi
           ls -lh dist
           sha256sum dist/BeatDrop.apk > dist/BeatDrop.apk.sha256
           cat dist/BeatDrop.apk.sha256
+          cat dist/BeatDrop.apk.source.txt
 
       - name: Upload APK artifact
-        if: env.HAS_RELEASE_KEYSTORE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: BeatDrop-apk
-          path: dist/BeatDrop.apk
+          path: |
+            dist/BeatDrop.apk
+            dist/BeatDrop.apk.sha256
+            dist/BeatDrop.apk.source.txt
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        if: github.event_name != 'pull_request' && env.HAS_RELEASE_KEYSTORE == 'true'
+        if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
@@ -107,10 +115,13 @@ jobs:
             BeatDrop Android 13 compatible APK — build ${{ github.run_number }}
             Commit: ${{ github.sha }}
 
-            This build targets Android 13 (targetSdk 33), keeps the Android-13-safe foreground-service permissions, and refuses to publish a debug-signed release APK.
+            This workflow refuses to publish a newly built debug-signed release APK.
+            If a release keystore is configured, the attached `BeatDrop.apk` is newly built from this commit.
+            If no release keystore is configured, the attached `BeatDrop.apk` is the pinned known-stable `phone-install/BeatDrop.apk` fallback.
           files: |
             dist/BeatDrop.apk
             dist/BeatDrop.apk.sha256
+            dist/BeatDrop.apk.source.txt
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
