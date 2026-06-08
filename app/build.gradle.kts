@@ -113,7 +113,7 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
     // ── Cloud backend models / local-first REST facades ──
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
