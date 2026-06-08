@@ -1,4 +1,4 @@
-name: Android CI
+name: Build & Deploy BeatDrop
 
 on:
   push:
@@ -11,10 +11,12 @@ permissions:
   contents: write
 
 jobs:
-  build-debug:
-    name: Build debug APK
+  build-and-deploy:
+    name: Build installable APKs
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
     steps:
       - name: Checkout
@@ -26,25 +28,45 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
-      - name: Set up Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
+      - name: Grant gradlew permission
+        run: chmod +x ./gradlew
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
         with:
-          gradle-version: '8.9'
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
 
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Gather installable APK
+      - name: Decode release keystore
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build release APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Gather APKs
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/*.apk dist/
+          cp app/build/outputs/apk/debug/*.apk dist/BeatDrop-debug.apk
+          cp app/build/outputs/apk/release/*.apk dist/BeatDrop-release.apk
           ls -lh dist
 
       - name: Upload APK artifact
@@ -54,17 +76,17 @@ jobs:
           path: dist/*.apk
           if-no-files-found: error
 
-      - name: Publish GitHub Release with raw APK
+      - name: Publish GitHub Release
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: BeatDrop Android build ${{ github.run_number }}
           body: |
-            BeatDrop Android debug APK.
+            BeatDrop Android v1.0.1 — build ${{ github.run_number }}
             Commit: ${{ github.sha }}
 
-            Install the `.apk` file from this release, not the zipped Actions artifact.
+            **Install:** Download `BeatDrop-release.apk` first. If Android reports a signature conflict, uninstall the old BeatDrop build once, then install again.
           files: dist/*.apk
           fail_on_unmatched_files: true
         env:
