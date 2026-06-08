@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -62,6 +63,7 @@ import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.data.repository.MusicRepository
 import com.beatdrop.app.ui.components.CoverArt
 import com.beatdrop.app.ui.components.StickyBackBar
+import coil.compose.SubcomposeAsyncImage
 import com.beatdrop.app.ui.components.TrackRow
 import com.beatdrop.app.ui.theme.BeatColors
 import com.beatdrop.app.ui.theme.BeatType
@@ -160,24 +162,35 @@ fun AlbumDetailScreen(
 private fun AlbumHero(album: Album, onOpenArtist: () -> Unit) {
     val palette = CoverPalette.from(album.colorKey)
     Box(Modifier.fillMaxWidth()) {
-        // Blurred color backdrop (matches .blur-bg: blur 70 / scale 1.25 / opacity .75)
+        // Apple Music-style artwork backdrop: the cover fills the top, heavily blurred,
+        // then fades into the dark page. Falls back to BeatDrop cover gradients.
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(380.dp)
-                .scale(1.25f)
-                .alpha(0.75f)
-                .blur(70.dp)
+                .height(430.dp)
+                .scale(1.28f)
+                .alpha(0.82f)
+                .blur(64.dp)
                 .background(palette.brush())
-        )
-        // fade backdrop into the page
+        ) {
+            album.artworkUri?.let { art ->
+                SubcomposeAsyncImage(
+                    model = art,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(380.dp)
+                .height(430.dp)
+                .background(Color(0x66000000))
                 .background(
                     Brush.verticalGradient(
-                        0.4f to Color.Transparent,
+                        0f to Color(0x22000000),
+                        0.55f to Color(0x88000000),
                         1f to BeatColors.Background,
                     )
                 )

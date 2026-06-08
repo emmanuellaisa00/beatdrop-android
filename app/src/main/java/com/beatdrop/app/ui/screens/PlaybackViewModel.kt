@@ -11,6 +11,7 @@ import com.beatdrop.app.player.PlaybackState
 import com.beatdrop.app.player.PlayerController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -65,7 +66,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             _resolving.value = true
-            val resolvedStart = resolve(start)
+            val resolvedStart = withTimeoutOrNull(25_000) { resolve(start) }
             if (resolvedStart == null) { _resolving.value = false; return@launch }
             // Start immediately with just the resolved track…
             controller.playQueue(listOf(resolvedStart), 0)
@@ -73,7 +74,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             // …then resolve the remainder and append, preserving order.
             val rest = tracks.filterIndexed { i, _ -> i != startIndex }
             rest.forEach { t ->
-                resolve(t)?.let { controller.addToQueue(it) }
+                withTimeoutOrNull(20_000) { resolve(t) }?.let { controller.addToQueue(it) }
             }
         }
     }

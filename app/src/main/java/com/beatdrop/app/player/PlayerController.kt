@@ -35,6 +35,7 @@ class PlayerController(private val context: Context) {
     private var controller: MediaController? = null
     /** Mirror of the queue keyed by mediaId so we can rebuild Track objects from the player. */
     private val trackById = HashMap<String, Track>()
+    private var pendingQueue: Pair<List<Track>, Int>? = null
 
     private val _state = MutableStateFlow(PlaybackState())
     val state: StateFlow<PlaybackState> = _state
@@ -46,7 +47,10 @@ class PlayerController(private val context: Context) {
         future.addListener({
             controller = future.get().also { c ->
                 c.addListener(playerListener)
-                syncFromController()
+                pendingQueue?.let { (tracks, startIndex) ->
+                    pendingQueue = null
+                    playQueue(tracks, startIndex)
+                } ?: syncFromController()
             }
         }, MoreExecutors.directExecutor())
     }
@@ -98,7 +102,11 @@ class PlayerController(private val context: Context) {
     fun currentPosition(): Long = controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
 
     fun playQueue(tracks: List<Track>, startIndex: Int) {
-        val c = controller ?: return
+        val c = controller ?: run {
+            pendingQueue = tracks to startIndex
+            connect()
+            return
+        }
         tracks.forEach { trackById[it.id] = it }
         c.setMediaItems(tracks.map { it.toMediaItem() }, startIndex, 0L)
         c.prepare()

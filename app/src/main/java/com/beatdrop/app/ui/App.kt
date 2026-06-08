@@ -101,6 +101,10 @@ fun BeatDropApp() {
             else -> {}
         }
     }
+    val signedInDisplayName = (authState as? AuthState.Authenticated)?.user?.userMetadata
+        ?.get("display_name")
+        ?.let { it as? kotlinx.serialization.json.JsonPrimitive }
+        ?.contentOrNull
     val pb by playback.state.collectAsStateWithLifecycle()
     val resolving by playback.resolving.collectAsStateWithLifecycle()
     val likedTracks by likes.liked.collectAsStateWithLifecycle()
@@ -212,9 +216,7 @@ fun BeatDropApp() {
                     downloadCount = downloadedTracks.size,
                     sleepActiveLabel = if (sleepRemaining > 0) "Ends in ${formatClock(sleepRemaining)}" else null,
                     isSignedIn = authState is AuthState.Authenticated,
-                    displayName = (authState as? AuthState.Authenticated)?.user?.let { u ->
-                        (u.userMetadata?.get("display_name") as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
-                    },
+                    displayName = signedInDisplayName,
                     email = (authState as? AuthState.Authenticated)?.user?.email,
                     onBack = { nav.pop() },
                     onSignIn = { showAuth = true },
@@ -240,6 +242,8 @@ fun BeatDropApp() {
                     playTracks = playTracks,
                     onSearch = { nav.selectTab(Tab.Search) },
                     onAdd = { nav.selectTab(Tab.Add) },
+                    onOpenArtist = { nav.push(Destination.ArtistDetail(it)) },
+                    displayName = signedInDisplayName,
                 )
             }
         }
@@ -405,6 +409,8 @@ private fun TabRoot(
     playTracks: (List<Track>, Int) -> Unit,
     onSearch: () -> Unit,
     onAdd: () -> Unit,
+    onOpenArtist: (String) -> Unit,
+    displayName: String?,
 ) {
     when (tab) {
         Tab.Home -> HomeScreen(
@@ -413,11 +419,13 @@ private fun TabRoot(
             onOpenDownloads = openDownloads,
             onSearch = onSearch,
             onAdd = onAdd,
+            displayName = displayName,
         )
         Tab.Search -> SearchScreen(
             currentTrackId = pb.current?.id,
             isPlaying = pb.isPlaying,
             onOpenAlbum = openAlbum,
+            onOpenArtist = onOpenArtist,
             onPlayTracks = playTracks,
             onAdd = onAdd,
         )
@@ -430,6 +438,7 @@ private fun TabRoot(
             onPlayTracks = playTracks,
             onSearch = onSearch,
             onAdd = onAdd,
+            displayName = displayName,
         )
         Tab.Add -> {
             val context = androidx.compose.ui.platform.LocalContext.current

@@ -51,6 +51,7 @@ fun HomeScreen(
     onOpenDownloads: () -> Unit,
     onSearch: () -> Unit,
     onAdd: () -> Unit,
+    displayName: String? = null,
     vm: HomeViewModel = viewModel(),
 ) {
     val permName = if (Build.VERSION.SDK_INT >= 33)
@@ -71,7 +72,7 @@ fun HomeScreen(
             !perm.status.isGranted -> PermissionPrompt { perm.launchPermissionRequest() }
             state.loading -> com.beatdrop.app.ui.components.SkeletonHomeContent()
             state.isEmpty -> EmptyLibrary()
-            else -> HomeContent(state, onOpenAlbum, onOpenLiked, onOpenDownloads, onSearch, onAdd)
+            else -> HomeContent(state, onOpenAlbum, onOpenLiked, onOpenDownloads, onSearch, onAdd, displayName)
         }
     }
 }
@@ -84,6 +85,7 @@ private fun HomeContent(
     onOpenDownloads: () -> Unit,
     onSearch: () -> Unit,
     onAdd: () -> Unit,
+    displayName: String?,
 ) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     val filters = remember { listOf("All", "Music", "Podcasts") }
@@ -100,8 +102,8 @@ private fun HomeContent(
         ) {
             item {
                 Hero(
-                    greetingPlain = "Good evening,",
-                    greetingBold = "Alex",
+                    greetingPlain = if (displayName.isNullOrBlank()) "Good evening" else "Good evening,",
+                    greetingBold = displayName?.takeIf { it.isNotBlank() },
                     titlePlain = "Good",
                     titleAccent = "vibes",
                     onSearch = onSearch,
@@ -145,7 +147,7 @@ private fun PermissionPrompt(onGrant: () -> Unit) {
         Text("Let BeatDrop play your music", style = BeatType.SectionTitle, color = BeatColors.TextPrimary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(10.dp))
         Text(
-            "Grant access to your audio library to start listening. An online catalogue will be added later.",
+            "Grant access to your audio library to play music saved on this device.",
             style = BeatType.CardSub, color = BeatColors.TextSecondary, textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(22.dp))
@@ -163,7 +165,7 @@ private fun EmptyLibrary() {
         Text("No music found", style = BeatType.SectionTitle, color = BeatColors.TextPrimary)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Add some audio files to your device, or connect the online catalogue (coming soon).",
+            "Add audio files to your device and they’ll appear here.",
             style = BeatType.CardSub, color = BeatColors.TextSecondary, textAlign = TextAlign.Center
         )
     }

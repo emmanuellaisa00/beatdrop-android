@@ -54,6 +54,7 @@ fun LibraryScreen(
     onPlayTracks: (List<Track>, Int) -> Unit,
     onSearch: () -> Unit,
     onAdd: () -> Unit,
+    displayName: String? = null,
     vm: LibraryViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -67,7 +68,7 @@ fun LibraryScreen(
             state.isEmpty -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Text("No music found", color = BeatColors.TextSecondary)
             }
-            else -> LibraryContent(state, currentTrackId, isPlaying, onOpenAlbum, onOpenLiked, onOpenDownloads, onPlayTracks, onSearch, onAdd)
+            else -> LibraryContent(state, currentTrackId, isPlaying, onOpenAlbum, onOpenLiked, onOpenDownloads, onPlayTracks, onSearch, onAdd, displayName)
         }
     }
 }
@@ -83,6 +84,7 @@ private fun LibraryContent(
     onPlayTracks: (List<Track>, Int) -> Unit,
     onSearch: () -> Unit,
     onAdd: () -> Unit,
+    displayName: String?,
 ) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     val filters = remember { listOf("Playlists", "Albums", "Artists", "Downloaded", "Recently played") }
@@ -97,8 +99,8 @@ private fun LibraryContent(
         ) {
             item {
                 Hero(
-                    greetingPlain = "Good evening,",
-                    greetingBold = "Alex",
+                    greetingPlain = if (displayName.isNullOrBlank()) "Good evening" else "Good evening,",
+                    greetingBold = displayName?.takeIf { it.isNotBlank() },
                     titlePlain = "Your",
                     titleAccent = "Library",
                     onSearch = onSearch,

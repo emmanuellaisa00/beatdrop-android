@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,8 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.NightlightRound
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
@@ -38,7 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -64,6 +70,7 @@ fun SearchScreen(
     currentTrackId: String?,
     isPlaying: Boolean,
     onOpenAlbum: (Album) -> Unit,
+    onOpenArtist: (String) -> Unit,
     onPlayTracks: (List<Track>, Int) -> Unit,
     onAdd: () -> Unit,
     vm: SearchViewModel = viewModel(),
@@ -81,14 +88,6 @@ fun SearchScreen(
             BrowseTile("R&B", BrowsePalette.BT6, Icons.Rounded.Favorite, "R&B Mix"),
             BrowseTile("Jazz", BrowsePalette.BT7, Icons.Rounded.MusicNote, "Jazz Mix"),
             BrowseTile("Workout", BrowsePalette.BT8, Icons.Rounded.Equalizer, "Workout Mix"),
-        )
-    }
-    val browseAll = remember {
-        listOf(
-            BrowseTile("New Releases", BrowsePalette.BT2, null, "New Releases"),
-            BrowseTile("Charts", BrowsePalette.BT1, null, "Charts"),
-            BrowseTile("Mood", BrowsePalette.BT6, null, "Mood"),
-            BrowseTile("Decades", BrowsePalette.BT5, null, "Decades"),
         )
     }
 
@@ -115,49 +114,55 @@ fun SearchScreen(
                     onClear = vm::clear,
                 )
             }
-            item {
-                ScopeToggle(scope = state.scope, onSelect = vm::setScope)
-            }
+            item { CategoryToggle(category = state.category, onSelect = vm::setCategory) }
 
             if (state.hasQuery) {
-                // ── Results ──
                 if (state.loading) {
-                    item { com.beatdrop.app.ui.components.SectionHeader("Albums", "") }
-                    item { com.beatdrop.app.ui.components.SkeletonCarousel() }
-                    item { com.beatdrop.app.ui.components.SectionHeader("Songs", "") }
-                    item { com.beatdrop.app.ui.components.SkeletonTrackList(6) }
+                    item { SectionHeader(categoryTitle(state.category), "") }
+                    when (state.category) {
+                        SearchCategory.SONGS, SearchCategory.ARTISTS -> item { com.beatdrop.app.ui.components.SkeletonTrackList(6) }
+                        SearchCategory.ALBUMS, SearchCategory.PLAYLISTS -> item { com.beatdrop.app.ui.components.SkeletonCarousel() }
+                    }
                 } else {
-                    if (state.resultsAlbums.isNotEmpty()) {
-                        item { SectionHeader("Albums", "") }
-                        item { AlbumCarousel(state.resultsAlbums, onOpenAlbum) }
-                    }
-                    if (state.resultsPlaylists.isNotEmpty()) {
-                        item { SectionHeader("Playlists", "") }
-                        item { AlbumCarousel(state.resultsPlaylists, onOpenAlbum) }
-                    }
-                    if (state.resultsTracks.isNotEmpty()) {
-                        item { SectionHeader("Songs", "") }
-                        itemsIndexed(state.resultsTracks, key = { _, t -> t.id }) { i, track ->
-                            TrackRow(
-                                index = i + 1,
-                                track = track,
-                                isPlaying = track.id == currentTrackId && isPlaying,
-                                onClick = { onPlayTracks(state.resultsTracks, i) },
-                            )
+                    when (state.category) {
+                        SearchCategory.SONGS -> {
+                            if (state.resultsTracks.isNotEmpty()) {
+                                item { SectionHeader("Songs", "Online") }
+                                itemsIndexed(state.resultsTracks, key = { _, t -> t.id }) { i, track ->
+                                    TrackRow(
+                                        index = i + 1,
+                                        track = track,
+                                        isPlaying = track.id == currentTrackId && isPlaying,
+                                        onClick = { onPlayTracks(state.resultsTracks, i) },
+                                    )
+                                }
+                            } else item { NoResults(state.query) }
                         }
-                    }
-                    if (state.resultsAlbums.isEmpty() && state.resultsTracks.isEmpty() &&
-                        state.resultsPlaylists.isEmpty()
-                    ) {
-                        item { NoResults(state.query) }
+                        SearchCategory.ALBUMS -> {
+                            if (state.resultsAlbums.isNotEmpty()) {
+                                item { SectionHeader("Albums", "Online") }
+                                item { AlbumCarousel(state.resultsAlbums, onOpenAlbum) }
+                            } else item { NoResults(state.query) }
+                        }
+                        SearchCategory.PLAYLISTS -> {
+                            if (state.resultsPlaylists.isNotEmpty()) {
+                                item { SectionHeader("Playlists", "Online") }
+                                item { AlbumCarousel(state.resultsPlaylists, onOpenAlbum) }
+                            } else item { NoResults(state.query) }
+                        }
+                        SearchCategory.ARTISTS -> {
+                            if (state.resultsArtists.isNotEmpty()) {
+                                item { SectionHeader("Artists", "Online") }
+                                items(state.resultsArtists, key = { it }) { artist ->
+                                    ArtistResultRow(artist = artist, onClick = { onOpenArtist(artist) })
+                                }
+                            } else item { NoResults(state.query) }
+                        }
                     }
                 }
             } else {
-                // ── Browse ──
-                item { SectionHeader("Top genres", "") }
-                item { BrowseGrid(genres) { /* opens a genre — wired to album later */ } }
-                item { SectionHeader("Browse all", "") }
-                item { BrowseGrid(browseAll) { } }
+                item { SectionHeader("Online genres", "") }
+                item { BrowseGrid(genres) { vm.onQueryChange(it.title) } }
                 item { Spacer(Modifier.height(8.dp)) }
             }
         }
@@ -165,13 +170,13 @@ fun SearchScreen(
         CompactHeader(
             title = "Search",
             listState = listState,
-            icons = emptyList(),
+            icons = listOf(HeaderIcon(Icons.Rounded.Search, "Search") { }),
+            thresholdDp = 40,
             modifier = Modifier.align(Alignment.TopCenter),
         )
     }
 }
 
-/** `.search-field` — h50 r25, bg 0.08, border 0.09, magnifier 18, placeholder 14/500/.45 */
 @Composable
 private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClear: () -> Unit) {
     Row(
@@ -190,9 +195,11 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClear:
         Box(Modifier.weight(1f)) {
             if (query.isEmpty()) {
                 Text(
-                    "Artists, songs, podcasts and more",
+                    "Search online songs, albums, playlists, artists",
                     style = BeatType.CardSub.copy(fontSize = 14.sp),
-                    color = Color(0x73FFFFFF)
+                    color = Color(0x73FFFFFF),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             BasicTextField(
@@ -209,17 +216,14 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClear:
             Icon(
                 Icons.Rounded.Close, "Clear",
                 tint = Color(0x99FFFFFF),
-                modifier = Modifier
-                    .size(18.dp)
-                    .clickable(onClick = onClear)
+                modifier = Modifier.size(18.dp).clickable(onClick = onClear)
             )
         }
     }
 }
 
-/** Local ⇄ Online segmented toggle. Online uses the YouTube Innertube engine. */
 @Composable
-private fun ScopeToggle(scope: SearchScope, onSelect: (SearchScope) -> Unit) {
+private fun CategoryToggle(category: SearchCategory, onSelect: (SearchCategory) -> Unit) {
     Row(
         Modifier
             .padding(horizontal = 20.dp)
@@ -228,17 +232,17 @@ private fun ScopeToggle(scope: SearchScope, onSelect: (SearchScope) -> Unit) {
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        SearchScope.entries.forEach { s ->
-            val active = s == scope
+        SearchCategory.entries.forEach { c ->
+            val active = c == category
             Box(
                 Modifier
                     .clip(RoundedCornerShape(17.dp))
                     .background(if (active) BeatColors.Accent else Color.Transparent)
-                    .clickable { onSelect(s) }
-                    .padding(horizontal = 18.dp, vertical = 7.dp)
+                    .clickable { onSelect(c) }
+                    .padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
                 Text(
-                    if (s == SearchScope.ONLINE) "Online" else "On device",
+                    categoryLabel(c),
                     style = BeatType.Pill,
                     color = if (active) Color.White else BeatColors.TextSecondary
                 )
@@ -248,16 +252,62 @@ private fun ScopeToggle(scope: SearchScope, onSelect: (SearchScope) -> Unit) {
 }
 
 @Composable
+private fun ArtistResultRow(artist: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .background(Color(0x14FFFFFF))
+                .border(1.dp, Color(0x17FFFFFF), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.Person, null, tint = Color(0xCCFFFFFF), modifier = Modifier.size(22.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                artist,
+                style = BeatType.TrackTitle.copy(fontWeight = FontWeight.SemiBold),
+                color = BeatColors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text("Artist", style = BeatType.TrackSub, color = Color(0x7AFFFFFF))
+        }
+    }
+}
+
+private fun categoryLabel(category: SearchCategory): String = when (category) {
+    SearchCategory.SONGS -> "Songs"
+    SearchCategory.ALBUMS -> "Albums"
+    SearchCategory.PLAYLISTS -> "Playlists"
+    SearchCategory.ARTISTS -> "Artists"
+}
+
+private fun categoryTitle(category: SearchCategory): String = categoryLabel(category)
+
+@Composable
 private fun NoResults(query: String) {
-    androidx.compose.foundation.layout.Column(
+    Column(
         Modifier.fillMaxWidth().padding(top = 60.dp, start = 32.dp, end = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("No results for \"$query\"", style = BeatType.SectionTitle, color = BeatColors.TextPrimary)
+        Text("No online results for \"$query\"", style = BeatType.SectionTitle, color = BeatColors.TextPrimary)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Try a different artist, song or album name.",
-            style = BeatType.CardSub, color = BeatColors.TextSecondary
+            "Try a different artist, song, album, or playlist name.",
+            style = BeatType.CardSub,
+            color = BeatColors.TextSecondary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
 }
