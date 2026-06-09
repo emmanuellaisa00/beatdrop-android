@@ -284,7 +284,7 @@ private fun DeviceRouteDialog(
         title = { Text("Devices", style = BeatType.SectionTitle, color = BeatColors.TextPrimary) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Choose where to control playback from. Casting will be added later; Android routes are available now.", style = BeatType.CardSub, color = BeatColors.TextSecondary)
+                Text("Choose a device route or jump into the active queue. BeatDrop uses Android’s system audio routing for reliable playback.", style = BeatType.CardSub, color = BeatColors.TextSecondary)
                 DebugPill("Open Bluetooth devices", onOpenBluetooth)
                 DebugPill("Open sound settings", onOpenSound)
                 DebugPill("Open queue", onOpenQueue)

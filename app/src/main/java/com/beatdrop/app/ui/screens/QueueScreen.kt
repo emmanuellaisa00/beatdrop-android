@@ -111,7 +111,7 @@ fun QueueScreen(
                             isCurrent = true,
                             canMoveUp = false,
                             canMoveDown = false,
-                            onClick = {},
+                            onClick = { onJumpTo(pb.currentIndex) },
                             onUp = {}, onDown = {}, onRemove = {},
                         )
                     }
