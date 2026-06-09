@@ -21,8 +21,8 @@ android {
         applicationId = "com.beatdrop.app"
         minSdk = 23
         targetSdk = 33
-        versionCode = 12
-        versionName = "1.0.11"
+        versionCode = 13
+        versionName = "1.0.12"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -105,6 +105,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:$media3")
     implementation("androidx.media3:media3-common:$media3")
     implementation("androidx.media3:media3-datasource:$media3")
+    implementation("androidx.media3:media3-datasource-okhttp:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-exoplayer-dash:$media3")
 

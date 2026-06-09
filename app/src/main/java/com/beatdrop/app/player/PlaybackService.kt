@@ -4,11 +4,13 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 /**
  * Real ExoPlayer running in a MediaSessionService:
@@ -24,9 +26,21 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         // HTTP data source for online (googlevideo) streams. The default UA is an
         // Android-YouTube UA; per-track UAs are applied via MediaItem request headers.
-        val httpFactory = DefaultHttpDataSource.Factory()
+        val okHttp = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(25, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+        val httpFactory = OkHttpDataSource.Factory(okHttp)
             .setUserAgent("com.google.android.youtube/20.10.38 (Linux; U; Android 14; Pixel 8 Pro) gzip")
-            .setAllowCrossProtocolRedirects(true)
+            .setDefaultRequestProperties(
+                mapOf(
+                    "Accept" to "*/*",
+                    "Accept-Language" to "en-US,en;q=0.9",
+                    "Connection" to "keep-alive",
+                )
+            )
         val dataSourceFactory = DefaultDataSource.Factory(this, httpFactory)
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 

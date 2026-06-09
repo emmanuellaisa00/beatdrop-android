@@ -395,8 +395,8 @@ object YoutubeService {
         val adaptive = streaming.optJSONArray("adaptiveFormats")
         val formats = streaming.optJSONArray("formats")
         OnlinePlaybackDebugLog.add("${c.name}: formats adaptive=${adaptive?.length() ?: 0}, regular=${formats?.length() ?: 0}")
-        val url = bestAudioUrl(adaptive, c.name, preferMp4)
-            ?: bestAudioUrl(formats, c.name, preferMp4)
+        val url = bestAudioUrl(adaptive, c.name, c.ua, preferMp4)
+            ?: bestAudioUrl(formats, c.name, c.ua, preferMp4)
             ?: run {
                 OnlinePlaybackDebugLog.add("${c.name}: no audio URL after format scan")
                 return null
@@ -408,7 +408,7 @@ object YoutubeService {
      * Pick the highest-bitrate audio format and resolve it via YoutubeCipher,
      * which handles BOTH plain `url` and ciphered `signatureCipher` formats.
      */
-    private suspend fun bestAudioUrl(formats: JSONArray?, clientName: String, preferMp4: Boolean): String? {
+    private suspend fun bestAudioUrl(formats: JSONArray?, clientName: String, userAgent: String, preferMp4: Boolean): String? {
         if (formats == null) return null
         val audio = (0 until formats.length())
             .map { formats.getJSONObject(it) }
@@ -435,10 +435,29 @@ object YoutubeService {
                 .onFailure { OnlinePlaybackDebugLog.add("$clientName: candidate itag=$itag cipher/url resolve failed", it) }
                 .getOrNull()
             if (!resolved.isNullOrBlank()) {
-                OnlinePlaybackDebugLog.add("$clientName: candidate itag=$itag resolved")
-                return resolved
+                OnlinePlaybackDebugLog.add("$clientName: candidate itag=$itag resolved; validating HTTP range")
+                if (validateAudioUrl(resolved, userAgent, clientName, itag)) return resolved
+                OnlinePlaybackDebugLog.add("$clientName: candidate itag=$itag rejected by HTTP validation")
             }
         }
         return null
+    }
+
+    private fun validateAudioUrl(url: String, userAgent: String, clientName: String, itag: String): Boolean {
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", userAgent)
+            .header("Accept", "*/*")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Range", "bytes=0-1")
+            .build()
+        return runCatching {
+            http.newCall(req).execute().use { resp ->
+                OnlinePlaybackDebugLog.add("$clientName: validate itag=$itag HTTP ${resp.code}, contentRange=${resp.header("Content-Range") ?: "none"}")
+                resp.code == 200 || resp.code == 206
+            }
+        }.onFailure { OnlinePlaybackDebugLog.add("$clientName: validate itag=$itag exception", it) }
+            .getOrDefault(false)
     }
 }
