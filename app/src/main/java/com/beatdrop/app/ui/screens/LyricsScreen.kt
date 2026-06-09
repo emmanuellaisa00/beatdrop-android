@@ -39,6 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +75,8 @@ fun LyricsScreen(
     onSeek: (Long) -> Unit = {},
 ) {
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs) else 0f
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
 
     var loading by remember(track.id) { mutableStateOf(true) }
     var lines by remember(track.id) { mutableStateOf<List<LyricLine>>(emptyList()) }
@@ -162,6 +167,26 @@ fun LyricsScreen(
                 }
             }
 
+            LyricsActions(
+                hasLyrics = lines.isNotEmpty(),
+                onCopy = { clipboard.setText(AnnotatedString(lines.joinToString("\n") { it.text })) },
+                onShare = {
+                    val text = lines.joinToString("\n") { it.text }.ifBlank { "${track.title} — ${track.artist}" }
+                    runCatching {
+                        context.startActivity(android.content.Intent.createChooser(
+                            android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(android.content.Intent.EXTRA_TEXT, text)
+                            }, "Share lyrics"))
+                    }
+                },
+                onReport = {
+                    runCatching {
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://lrclib.net")))
+                    }
+                }
+            )
+
             // ── Lyrics body ──
             when {
                 loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -242,6 +267,39 @@ fun LyricsScreen(
                 color = Color(0x80FFFFFF)
             )
         }
+    }
+}
+
+@Composable
+private fun LyricsActions(
+    hasLyrics: Boolean,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onReport: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LyricsPill("Copy", enabled = hasLyrics, onClick = onCopy)
+        LyricsPill("Share", enabled = hasLyrics, onClick = onShare)
+        LyricsPill("Report", enabled = true, onClick = onReport)
+    }
+}
+
+@Composable
+private fun LyricsPill(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (enabled) Color(0x26000000) else Color(0x12000000))
+            .border(1.dp, Color(0x18FFFFFF), RoundedCornerShape(18.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, style = BeatType.Pill, color = if (enabled) Color.White else Color(0x66FFFFFF))
     }
 }
 

@@ -84,7 +84,9 @@ fun AddScreen(
     val playlists by vm.playlists.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showBlendDialog by remember { mutableStateOf(false) }
     var showPasteDialog by remember { mutableStateOf(false) }
+    var showScanDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.refresh() }
@@ -116,10 +118,10 @@ fun AddScreen(
                         showCreateDialog = true
                     }
                     AddRow(Icons.Rounded.Group, "Blend with a friend", "Make a shared playlist that updates daily") {
-                        showCreateDialog = true
+                        showBlendDialog = true
                     }
                     AddRow(Icons.Rounded.QrCodeScanner, "Scan a Code", "Use your camera to import a track") {
-                        onImportFromDevice()
+                        showScanDialog = true
                     }
                     AddRow(Icons.Rounded.Link, "Paste a Link", "YouTube, SoundCloud, or any URL") {
                         showPasteDialog = true
@@ -161,6 +163,32 @@ fun AddScreen(
         )
     }
 
+    if (showBlendDialog) {
+        BlendDialog(
+            onDismiss = { showBlendDialog = false },
+            onCreate = { friend ->
+                vm.createPlaylist(if (friend.isBlank()) "Blend Mix" else "Blend with ${friend.trim()}")
+                showBlendDialog = false
+            }
+        )
+    }
+
+    if (showScanDialog) {
+        ScanCodeDialog(
+            onDismiss = { showScanDialog = false },
+            onOpenCamera = {
+                runCatching {
+                    context.startActivity(android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE))
+                }
+                showScanDialog = false
+            },
+            onUseCode = { code ->
+                showScanDialog = false
+                if (code.isNotBlank()) onSearch() else onImportFromDevice()
+            },
+        )
+    }
+
     if (showPasteDialog) {
         PasteLinkDialog(
             onDismiss = { showPasteDialog = false },
@@ -188,6 +216,57 @@ fun AddScreen(
     }
 }
 
+
+@Composable
+private fun BlendDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
+    var friend by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF15121A),
+        title = { Text("Create Blend", color = BeatColors.TextPrimary, style = BeatType.SectionTitle) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Name a friend or group. BeatDrop creates a collaborative-style playlist you can fill together.", color = BeatColors.TextSecondary, style = BeatType.CardSub)
+                OutlinedTextField(
+                    value = friend,
+                    onValueChange = { friend = it },
+                    singleLine = true,
+                    placeholder = { Text("Friend name", color = BeatColors.TextMuted) },
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onCreate(friend) }) { Text("Create", color = BeatColors.Accent) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = BeatColors.TextSecondary) } }
+    )
+}
+
+@Composable
+private fun ScanCodeDialog(onDismiss: () -> Unit, onOpenCamera: () -> Unit, onUseCode: (String) -> Unit) {
+    var code by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF15121A),
+        title = { Text("Scan or enter code", color = BeatColors.TextPrimary, style = BeatType.SectionTitle) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Open your camera to scan a shared BeatDrop/QR code, or paste a code/link manually.", color = BeatColors.TextSecondary, style = BeatType.CardSub)
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it },
+                    singleLine = true,
+                    placeholder = { Text("Code or link", color = BeatColors.TextMuted) },
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onUseCode(code) }) { Text(if (code.isBlank()) "Import" else "Use", color = BeatColors.Accent) } },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onOpenCamera) { Text("Camera", color = BeatColors.TextSecondary) }
+                TextButton(onClick = onDismiss) { Text("Cancel", color = BeatColors.TextSecondary) }
+            }
+        }
+    )
+}
 
 @Composable
 private fun PasteLinkDialog(

@@ -91,6 +91,7 @@ fun NowPlayingScreen(
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs) else 0f
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    var showDevices by remember { mutableStateOf(false) }
     val shareTrack: () -> Unit = {
         runCatching {
             context.startActivity(android.content.Intent.createChooser(
@@ -239,7 +240,7 @@ fun NowPlayingScreen(
                     .padding(start = 28.dp, end = 28.dp, top = 18.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                BottomAction(Icons.Rounded.Speaker, "Devices", onClick = onOpenQueue)
+                BottomAction(Icons.Rounded.Speaker, "Devices", onClick = { showDevices = true })
                 BottomAction(Icons.AutoMirrored.Rounded.QueueMusic, "Queue", onClick = onOpenQueue)
                 BottomAction(Icons.Rounded.IosShare, "Share", onClick = shareTrack)
             }
@@ -250,6 +251,47 @@ fun NowPlayingScreen(
             LyricsDrawer(onOpenLyrics)
         }
     }
+
+    if (showDevices) {
+        DeviceRouteDialog(
+            onDismiss = { showDevices = false },
+            onOpenBluetooth = {
+                runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)) }
+                showDevices = false
+            },
+            onOpenSound = {
+                runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_SOUND_SETTINGS)) }
+                showDevices = false
+            },
+            onOpenQueue = {
+                showDevices = false
+                onOpenQueue()
+            }
+        )
+    }
+}
+
+@Composable
+private fun DeviceRouteDialog(
+    onDismiss: () -> Unit,
+    onOpenBluetooth: () -> Unit,
+    onOpenSound: () -> Unit,
+    onOpenQueue: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF101824),
+        title = { Text("Devices", style = BeatType.SectionTitle, color = BeatColors.TextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Choose where to control playback from. Casting will be added later; Android routes are available now.", style = BeatType.CardSub, color = BeatColors.TextSecondary)
+                DebugPill("Open Bluetooth devices", onOpenBluetooth)
+                DebugPill("Open sound settings", onOpenSound)
+                DebugPill("Open queue", onOpenQueue)
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close", color = BeatColors.Accent) } }
+    )
 }
 
 @Composable
