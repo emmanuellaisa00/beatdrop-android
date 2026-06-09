@@ -34,9 +34,11 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.beatdrop.app.data.cloud.CloudSync
 import com.beatdrop.app.data.model.Album
 import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.ui.components.AddRow
@@ -60,6 +63,7 @@ import com.beatdrop.app.ui.components.SectionHeader
 import com.beatdrop.app.ui.theme.BeatColors
 import com.beatdrop.app.ui.theme.BeatType
 import com.beatdrop.app.ui.theme.PillActiveBrush
+import kotlinx.coroutines.launch
 
 /**
  * Home is the online/cloud Spotify-style entry point. Local/on-device music lives
@@ -81,6 +85,7 @@ fun HomeScreen(
     onSignIn: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var onboardingDone by remember {
         mutableStateOf(
             context.getSharedPreferences("beatdrop_cloud_library", Context.MODE_PRIVATE)
@@ -100,6 +105,7 @@ fun HomeScreen(
                         .putBoolean("artists_done", true)
                         .putStringSet("favorite_artists", artists)
                         .apply()
+                    scope.launch { CloudSync.saveFavoriteArtists(artists) }
                     onboardingDone = true
                 }
             )
@@ -275,6 +281,8 @@ private fun OnlineHomeContent(
             .toList()
             .sorted()
     }
+    var cloudSummary by remember { mutableStateOf(CloudSync.CloudSummary()) }
+    LaunchedEffect(Unit) { cloudSummary = CloudSync.pullCloudSummary() }
     val listState = rememberLazyListState()
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -301,13 +309,22 @@ private fun OnlineHomeContent(
                     AddRow(Icons.Rounded.LibraryMusic, "Downloads", "Offline music stays available on this device") { onOpenDownloads() }
                 }
             }
+            item { SectionHeader("Cloud snapshot", "Live") }
+            item {
+                Text(
+                    "${cloudSummary.likedItems} likes  •  ${cloudSummary.playlists} playlists  •  ${cloudSummary.followedArtists} artists  •  ${cloudSummary.recentPlays} recent plays",
+                    style = BeatType.CardSub.copy(fontWeight = FontWeight.SemiBold),
+                    color = BeatColors.TextSecondary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
+                )
+            }
             item { SectionHeader("Artist seeds", "") }
             item {
                 Text(
-                    if (favoriteArtists.isEmpty()) {
-                        "Choose artists to unlock better online suggestions."
-                    } else {
-                        favoriteArtists.joinToString("  •  ")
+                    when {
+                        cloudSummary.favoriteArtists.isNotEmpty() -> cloudSummary.favoriteArtists.joinToString("  •  ")
+                        favoriteArtists.isEmpty() -> "Choose artists to unlock better online suggestions."
+                        else -> favoriteArtists.joinToString("  •  ")
                     },
                     style = BeatType.CardSub.copy(fontWeight = FontWeight.SemiBold),
                     color = BeatColors.TextSecondary,

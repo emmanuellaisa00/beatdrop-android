@@ -25,7 +25,7 @@ class PlaybackService : MediaSessionService() {
         // HTTP data source for online (googlevideo) streams. The default UA is an
         // Android-YouTube UA; per-track UAs are applied via MediaItem request headers.
         val httpFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip")
+            .setUserAgent("com.google.android.youtube/20.10.38 (Linux; U; Android 14; Pixel 8 Pro) gzip")
             .setAllowCrossProtocolRedirects(true)
         val dataSourceFactory = DefaultDataSource.Factory(this, httpFactory)
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)

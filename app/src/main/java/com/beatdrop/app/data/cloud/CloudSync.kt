@@ -40,6 +40,15 @@ object CloudSync {
         val trackIds: List<String>,
     )
 
+    data class CloudSummary(
+        val savedItems: Int = 0,
+        val likedItems: Int = 0,
+        val followedArtists: Int = 0,
+        val playlists: Int = 0,
+        val recentPlays: Int = 0,
+        val favoriteArtists: List<String> = emptyList(),
+    )
+
     private data class ExternalIdentity(
         val source: String,
         val type: String,
@@ -299,6 +308,22 @@ object CloudSync {
                 RemotePlaylist(id, title, trackIds)
             }
         }.getOrDefault(emptyList())
+    }
+
+    suspend fun pullCloudSummary(): CloudSummary = withContext(Dispatchers.IO) {
+        if (!isSignedIn) return@withContext CloudSummary()
+        runCatching {
+            val userId = Supabase.currentUserId ?: return@runCatching CloudSummary()
+            val library = getArray("library_items", "select=external_item_id&user_id=eq.${enc(userId)}").length()
+            val liked = getArray("liked_items", "select=external_item_id&user_id=eq.${enc(userId)}").length()
+            val followed = getArray("followed_artists", "select=artist_external_id&user_id=eq.${enc(userId)}").length()
+            val playlists = getArray("playlists", "select=id&user_id=eq.${enc(userId)}").length()
+            val recent = getArray("recently_played", "select=external_item_id&user_id=eq.${enc(userId)}").length()
+            val artists = getArray("user_favorite_artists", "select=artist_name&user_id=eq.${enc(userId)}&limit=8")
+                .objects()
+                .mapNotNull { it.optString("artist_name").takeIf { name -> name.isNotBlank() } }
+            CloudSummary(library, liked, followed, playlists, recent, artists)
+        }.getOrDefault(CloudSummary())
     }
 
     // ───────────────────────────────────────────── playback history ──
