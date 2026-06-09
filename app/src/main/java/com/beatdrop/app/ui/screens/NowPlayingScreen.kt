@@ -91,7 +91,7 @@ fun NowPlayingScreen(
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs) else 0f
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
-    val shareTrack = {
+    val shareTrack: () -> Unit = {
         runCatching {
             context.startActivity(android.content.Intent.createChooser(
                 android.content.Intent(android.content.Intent.ACTION_SEND).apply {
