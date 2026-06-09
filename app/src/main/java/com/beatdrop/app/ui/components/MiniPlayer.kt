@@ -109,7 +109,7 @@ fun MiniPlayer(
                         modifier = Modifier.padding(top = 1.dp)
                     )
                 }
-                IconCircle(Icons.Rounded.Cast, "Cast", tint = BeatColors.TextSecondary) { /* devices */ }
+                IconCircle(Icons.Rounded.Cast, "Devices", tint = BeatColors.TextSecondary, onClick = onClick)
                 IconCircle(
                     if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     if (isPlaying) "Pause" else "Play",
