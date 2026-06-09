@@ -30,7 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.beatdrop.app.ui.theme.BeatColors
-import com.beatdrop.app.ui.theme.BeatThemeController
 import com.beatdrop.app.ui.theme.BeatType
 
 enum class Tab(val label: String, val icon: ImageVector) {
@@ -76,7 +75,7 @@ private fun DockTab(tab: Tab, active: Boolean, modifier: Modifier = Modifier, on
                 .size(44.dp)
                 .clip(RoundedCornerShape(22.dp))
                 .then(
-                    if (active) Modifier.background(if (BeatThemeController.isLight) BeatColors.Accent else Color(0x1AFFFFFF))
+                    if (active) Modifier.background(BeatColors.AccentDim)
                     else Modifier
                 ),
             contentAlignment = Alignment.Center

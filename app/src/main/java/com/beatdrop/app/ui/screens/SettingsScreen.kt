@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DataSaverOn
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -63,11 +62,6 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
 
     Box(Modifier.fillMaxSize().background(BeatColors.Background)) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 70.dp, bottom = 200.dp)) {
-            item {
-                SettingsGroup(title = "Appearance") {
-                    AppearanceRow(s.appearance, vm.store::setAppearance)
-                }
-            }
             item {
                 SettingsGroup(title = "Playback") {
                     SettingsRow(Icons.Rounded.GraphicEq, "Gapless playback", "No silence between tracks",
@@ -116,43 +110,6 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
 }
 
 @Composable
-private fun AppearanceRow(
-    current: SettingsStore.Appearance,
-    onSelect: (SettingsStore.Appearance) -> Unit,
-) {
-    SettingsRow(
-        Icons.Rounded.DarkMode,
-        "Appearance",
-        current.name.lowercase().replaceFirstChar { it.uppercase() },
-        trailing = {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SettingsStore.Appearance.entries.forEach { mode ->
-                    val active = mode == current
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(if (active) BeatColors.Accent else BeatColors.SurfaceHover)
-                            .clickable { onSelect(mode) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            when (mode) {
-                                SettingsStore.Appearance.SYSTEM -> "Sys"
-                                SettingsStore.Appearance.DARK -> "Dark"
-                                SettingsStore.Appearance.LIGHT -> "Light"
-                            },
-                            style = BeatType.TabLabel,
-                            color = if (active) Color.White else BeatColors.TextSecondary
-                        )
-                    }
-                }
-            }
-        }
-    )
-}
-
-@Composable
 private fun CrossfadeRow(current: Int, onChange: (Int) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -174,7 +131,7 @@ private fun CrossfadeRow(current: Int, onChange: (Int) -> Unit) {
             valueRange = 0f..12f,
             steps = 11,
             colors = SliderDefaults.colors(
-                thumbColor = if (com.beatdrop.app.ui.theme.BeatThemeController.isLight) BeatColors.Accent else Color.White,
+                thumbColor = Color.White,
                 activeTrackColor = BeatColors.Accent,
                 inactiveTrackColor = BeatColors.SurfaceHover,
             ),

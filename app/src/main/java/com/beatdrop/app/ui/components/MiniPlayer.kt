@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.ui.theme.AccentBrush
 import com.beatdrop.app.ui.theme.BeatColors
-import com.beatdrop.app.ui.theme.BeatThemeController
 import com.beatdrop.app.ui.theme.BeatType
 
 /**
@@ -70,7 +69,7 @@ fun MiniPlayer(
                 .background(BeatColors.MiniBg)
                 .background(
                     Brush.linearGradient(
-                        0f to if (BeatThemeController.isLight) Color(0x66FFFFFF) else Color(0x14FFFFFF),
+                        0f to Color(0x22FFFFFF),
                         0.5f to Color.Transparent,
                     )
                 )

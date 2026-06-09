@@ -57,7 +57,6 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 import com.beatdrop.app.data.cloud.AuthState
 import com.beatdrop.app.ui.theme.BeatColors
-import com.beatdrop.app.ui.theme.BeatThemeController
 import com.beatdrop.app.ui.theme.BeatType
 import com.beatdrop.app.ui.theme.PillActiveBrush
 
@@ -101,11 +100,7 @@ fun AuthScreen(
         Modifier
             .fillMaxSize()
             .background(
-                if (BeatThemeController.isLight) {
-                    Brush.verticalGradient(listOf(Color(0xFFFFFBF4), Color(0xFFF1EFE8), Color(0xFFE8F6EE)))
-                } else {
-                    Brush.verticalGradient(listOf(Color(0xFF1E0F1A), Color(0xFF0B070E), Color(0xFF000000)))
-                }
+                Brush.verticalGradient(listOf(Color(0xFF365475), Color(0xFF1A2D42), Color(0xFF07111D)))
             )
     ) {
         // Close

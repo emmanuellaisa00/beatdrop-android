@@ -1,9 +1,6 @@
 package com.beatdrop.app.data.local
 
 import android.content.Context
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -19,11 +16,9 @@ class SettingsStore(context: Context) {
         val crossfadeSec: Int = 0,            // 0 = off, up to 12s
         val streamQuality: Quality = Quality.AUTO,
         val downloadQuality: Quality = Quality.HIGH,
-        val appearance: Appearance = Appearance.DARK,
     )
 
     enum class Quality { LOW, NORMAL, HIGH, AUTO }
-    enum class Appearance { SYSTEM, DARK, LIGHT }
 
     private val _state = MutableStateFlow(load())
     val state: StateFlow<Settings> = _state
@@ -37,11 +32,6 @@ class SettingsStore(context: Context) {
     }
     fun setStreamQuality(q: Quality) = put { it.copy(streamQuality = q) }.also { prefs.edit().putString(STREAM_Q, q.name).apply() }
     fun setDownloadQuality(q: Quality) = put { it.copy(downloadQuality = q) }.also { prefs.edit().putString(DL_Q, q.name).apply() }
-    fun setAppearance(a: Appearance) = put { it.copy(appearance = a) }.also {
-        prefs.edit().putString(APPEARANCE, a.name).apply()
-        appearanceMode = a
-    }
-
     private inline fun put(update: (Settings) -> Settings) { _state.value = update(_state.value) }
 
     private fun load() = Settings(
@@ -51,11 +41,7 @@ class SettingsStore(context: Context) {
         crossfadeSec = prefs.getInt(CROSSFADE, 0),
         streamQuality = runCatching { Quality.valueOf(prefs.getString(STREAM_Q, "AUTO")!!) }.getOrDefault(Quality.AUTO),
         downloadQuality = runCatching { Quality.valueOf(prefs.getString(DL_Q, "HIGH")!!) }.getOrDefault(Quality.HIGH),
-        appearance = runCatching { Appearance.valueOf(prefs.getString(APPEARANCE, "DARK")!!) }.getOrDefault(Appearance.DARK),
-    ).also {
-        CrossfadeSettings.seconds = it.crossfadeSec
-        appearanceMode = it.appearance
-    }
+    ).also { CrossfadeSettings.seconds = it.crossfadeSec }
 
     companion object {
         private const val DATA_SAVER = "data_saver"
@@ -64,10 +50,6 @@ class SettingsStore(context: Context) {
         private const val CROSSFADE = "crossfade_sec"
         private const val STREAM_Q = "stream_quality"
         private const val DL_Q = "download_quality"
-        private const val APPEARANCE = "appearance"
-
-        var appearanceMode by mutableStateOf(Appearance.DARK)
-            private set
     }
 }
 

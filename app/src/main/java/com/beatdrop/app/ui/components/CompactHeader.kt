@@ -31,7 +31,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.beatdrop.app.ui.theme.BeatColors
-import com.beatdrop.app.ui.theme.BeatThemeController
 import com.beatdrop.app.ui.theme.BeatType
 
 /** A tappable icon used inside the compact header (.compact .icons svg). */
@@ -72,9 +71,9 @@ fun CompactHeader(
                 .fillMaxWidth()
                 .background(
                     Brush.verticalGradient(
-                        0f to if (BeatThemeController.isLight) Color(0xF7FFFFFF) else Color(0xE008060A),
-                        0.65f to if (BeatThemeController.isLight) Color(0xF7FFFFFF) else Color(0xE008060A),
-                        1f to if (BeatThemeController.isLight) Color(0x00FFFFFF) else Color(0x0008060A),
+                        0f to Color(0xEE101B2A),
+                        0.65f to Color(0xD9101B2A),
+                        1f to Color(0x00101B2A),
                     )
                 )
                 .statusBarsPadding()
