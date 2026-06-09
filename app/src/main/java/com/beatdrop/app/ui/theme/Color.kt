@@ -23,8 +23,8 @@ object BeatColors {
     val AccentDim get() = if (BeatThemeController.isLight) Color(0x331DB954) else Color(0x59FF375F)
     val AccentGlow get() = if (BeatThemeController.isLight) Color(0x551DB954) else Color(0x8CFF375F)
 
-    val Background get() = if (BeatThemeController.isLight) Color(0xFFF7F5EF) else Color(0xFF050608)
-    val PhoneInk get() = if (BeatThemeController.isLight) Color(0xFFFFFCF7) else Color(0xFF08060E)
+    val Background get() = if (BeatThemeController.isLight) Color(0xFF5981B1) else Color(0xFF365475)
+    val PhoneInk get() = if (BeatThemeController.isLight) Color(0xFFF8FBFF) else Color(0xFF20384F)
 
     val TextPrimary get() = if (BeatThemeController.isLight) Color(0xFF121316) else Color(0xFFFFFFFF)
     val TextSecondary get() = if (BeatThemeController.isLight) Color(0xB3121316) else Color(0x94FFFFFF)

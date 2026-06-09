@@ -15,7 +15,7 @@ import com.beatdrop.app.data.local.SettingsStore
 private val BeatDarkColors = darkColorScheme(
     primary = Color(0xFFFF375F),
     onPrimary = Color.White,
-    background = Color(0xFF050608),
+    background = Color(0xFF365475),
     onBackground = Color.White,
     surface = Color(0xFF050608),
     onSurface = Color.White,
@@ -24,7 +24,7 @@ private val BeatDarkColors = darkColorScheme(
 private val BeatLightColors = lightColorScheme(
     primary = Color(0xFF1DB954),
     onPrimary = Color.White,
-    background = Color(0xFFF7F5EF),
+    background = Color(0xFF5981B1),
     onBackground = Color(0xFF121316),
     surface = Color.White,
     onSurface = Color(0xFF121316),

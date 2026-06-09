@@ -20,10 +20,10 @@ import com.beatdrop.app.ui.theme.BeatThemeController
 
 /** Per-screen background. Light mode uses Apple-clean warm paper + pastel wash. */
 enum class ScreenTheme(val top: Color, val mid: Color, val lightTop: Color, val lightMid: Color) {
-    Home(Color(0xFF1A3D50), Color(0xFF0F1C23), Color(0xFFE8F6EE), Color(0xFFFFFBF4)),
-    Search(Color(0xFF281D50), Color(0xFF0F0E1E), Color(0xFFEDE8FF), Color(0xFFFFFBF4)),
-    Library(Color(0xFF5A2238), Color(0xFF1E0F1A), Color(0xFFE7F5FF), Color(0xFFFFFBF4)),
-    Add(Color(0xFF30183E), Color(0xFF14101C), Color(0xFFFFEDD9), Color(0xFFFFFBF4)),
+    Home(Color(0xFF365475), Color(0xFF20384F), Color(0xFF5981B1), Color(0xFFF8FBFF)),
+    Search(Color(0xFF365475), Color(0xFF253F59), Color(0xFF5981B1), Color(0xFFF8FBFF)),
+    Library(Color(0xFF365475), Color(0xFF20384F), Color(0xFF5981B1), Color(0xFFF8FBFF)),
+    Add(Color(0xFF365475), Color(0xFF2D4661), Color(0xFF5981B1), Color(0xFFF8FBFF)),
 }
 
 @Composable
@@ -58,7 +58,7 @@ fun ScreenBackground(theme: ScreenTheme, modifier: Modifier = Modifier) {
         Box(
             modifier
                 .fillMaxSize()
-                .background(Color(0xFF050608))
+                .background(BeatColors.Background)
                 .scale(scale)
                 .background(
                     Brush.radialGradient(
@@ -70,8 +70,8 @@ fun ScreenBackground(theme: ScreenTheme, modifier: Modifier = Modifier) {
                 .background(
                     Brush.verticalGradient(
                         0f to theme.mid,
-                        0.45f to Color(0xFF07090D),
-                        0.78f to Color(0xFF000000),
+                        0.45f to Color(0xFF2B4662),
+                        0.88f to BeatColors.Background,
                     )
                 )
         )

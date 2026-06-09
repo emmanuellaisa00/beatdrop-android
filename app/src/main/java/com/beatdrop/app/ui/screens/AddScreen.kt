@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -82,6 +83,8 @@ fun AddScreen(
     val playlists by vm.playlists.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showPasteDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.refresh() }
 
@@ -118,7 +121,7 @@ fun AddScreen(
                         onImportFromDevice()
                     }
                     AddRow(Icons.Rounded.Link, "Paste a Link", "YouTube, SoundCloud, or any URL") {
-                        onSearch()
+                        showPasteDialog = true
                     }
                     AddRow(Icons.Rounded.Upload, "Import from Device", "Add music files from your phone") {
                         onImportFromDevice()
@@ -157,6 +160,22 @@ fun AddScreen(
         )
     }
 
+    if (showPasteDialog) {
+        PasteLinkDialog(
+            onDismiss = { showPasteDialog = false },
+            onSearch = {
+                showPasteDialog = false
+                onSearch()
+            },
+            onOpenUrl = { url ->
+                runCatching {
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                }
+                showPasteDialog = false
+            }
+        )
+    }
+
     if (showCreateDialog) {
         CreatePlaylistDialog(
             onDismiss = { showCreateDialog = false },
@@ -166,6 +185,47 @@ fun AddScreen(
             }
         )
     }
+}
+
+
+@Composable
+private fun PasteLinkDialog(
+    onDismiss: () -> Unit,
+    onSearch: () -> Unit,
+    onOpenUrl: (String) -> Unit,
+) {
+    var link by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF15121A),
+        title = { Text("Paste a link", color = BeatColors.TextPrimary, style = BeatType.SectionTitle) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Paste a YouTube, SoundCloud, or music link. BeatDrop can open it externally now, or you can search for it in-app.",
+                    color = BeatColors.TextSecondary,
+                    style = BeatType.CardSub,
+                )
+                OutlinedTextField(
+                    value = link,
+                    onValueChange = { link = it },
+                    singleLine = true,
+                    placeholder = { Text("https://...", color = BeatColors.TextMuted) },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { if (link.isNotBlank()) onOpenUrl(link.trim()) else onSearch() }) {
+                Text(if (link.isBlank()) "Search" else "Open", color = BeatColors.Accent)
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onSearch) { Text("Search", color = BeatColors.TextSecondary) }
+                TextButton(onClick = onDismiss) { Text("Cancel", color = BeatColors.TextSecondary) }
+            }
+        }
+    )
 }
 
 @Composable
