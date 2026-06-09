@@ -308,8 +308,8 @@ object YoutubeService {
         YtClient("IOS", "20.10.04", "com.google.ios.youtube/20.10.04 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)", "5"),
     )
 
-    suspend fun getStream(videoId: String, bypassCache: Boolean = false): ResolvedStream? = withContext(Dispatchers.IO) {
-        OnlinePlaybackDebugLog.add("getStream: videoId=$videoId, bypassCache=$bypassCache")
+    suspend fun getStream(videoId: String, bypassCache: Boolean = false, preferMp4: Boolean = true): ResolvedStream? = withContext(Dispatchers.IO) {
+        OnlinePlaybackDebugLog.add("getStream: videoId=$videoId, bypassCache=$bypassCache, preferMp4=$preferMp4")
         if (!bypassCache) {
             streamCache[videoId]?.let {
                 if (System.currentTimeMillis() - it.at < CACHE_TTL_MS) {
@@ -332,7 +332,7 @@ object YoutubeService {
 
         for (c in clients) {
             OnlinePlaybackDebugLog.add("Trying Innertube client ${c.name} ${c.version}")
-            val stream = runCatching { tryClient(videoId, c) }
+            val stream = runCatching { tryClient(videoId, c, preferMp4) }
                 .onFailure { OnlinePlaybackDebugLog.add("Client ${c.name} exception", it) }
                 .getOrNull()
             if (stream != null) {
@@ -357,7 +357,7 @@ object YoutubeService {
         null
     }
 
-    private suspend fun tryClient(videoId: String, c: YtClient): ResolvedStream? {
+    private suspend fun tryClient(videoId: String, c: YtClient, preferMp4: Boolean): ResolvedStream? {
         val body = JSONObject().apply {
             put("videoId", videoId)
             put("contentCheckOk", true)
@@ -395,8 +395,8 @@ object YoutubeService {
         val adaptive = streaming.optJSONArray("adaptiveFormats")
         val formats = streaming.optJSONArray("formats")
         OnlinePlaybackDebugLog.add("${c.name}: formats adaptive=${adaptive?.length() ?: 0}, regular=${formats?.length() ?: 0}")
-        val url = bestAudioUrl(adaptive, c.name)
-            ?: bestAudioUrl(formats, c.name)
+        val url = bestAudioUrl(adaptive, c.name, preferMp4)
+            ?: bestAudioUrl(formats, c.name, preferMp4)
             ?: run {
                 OnlinePlaybackDebugLog.add("${c.name}: no audio URL after format scan")
                 return null
@@ -408,19 +408,23 @@ object YoutubeService {
      * Pick the highest-bitrate audio format and resolve it via YoutubeCipher,
      * which handles BOTH plain `url` and ciphered `signatureCipher` formats.
      */
-    private suspend fun bestAudioUrl(formats: JSONArray?, clientName: String): String? {
+    private suspend fun bestAudioUrl(formats: JSONArray?, clientName: String, preferMp4: Boolean): String? {
         if (formats == null) return null
         val audio = (0 until formats.length())
             .map { formats.getJSONObject(it) }
             .filter { (it.optString("mimeType") + it.optString("type")).lowercase().contains("audio/") }
             .sortedWith(
                 compareByDescending<JSONObject> {
-                    // M4A/MP4 is more reliable across OEM ExoPlayer stacks than WebM/Opus.
                     val mime = it.optString("mimeType").lowercase()
-                    if (mime.contains("audio/mp4") || mime.contains("mp4a")) 1 else 0
+                    val isMp4 = mime.contains("audio/mp4") || mime.contains("mp4a")
+                    if (preferMp4) {
+                        if (isMp4) 1 else 0
+                    } else {
+                        if (isMp4) 0 else 1
+                    }
                 }.thenByDescending { it.optLong("bitrate").coerceAtLeast(it.optLong("averageBitrate")) }
             )
-        OnlinePlaybackDebugLog.add("$clientName: audio candidates=${audio.size}")
+        OnlinePlaybackDebugLog.add("$clientName: audio candidates=${audio.size}, preferMp4=$preferMp4")
         for (f in audio) {
             val itag = f.optString("itag")
             val mime = f.optString("mimeType").take(48)

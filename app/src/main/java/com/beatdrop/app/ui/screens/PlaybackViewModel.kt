@@ -39,6 +39,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
 
     private var resolveJob: Job? = null
     private var lastOnlineRequest: Pair<List<Track>, Int>? = null
+    private var fallbackAttemptedForTrackId: String? = null
 
     init {
         controller.connect()
@@ -46,6 +47,12 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             controller.state.collect { s ->
                 // Do not overwrite the pending online Now Playing shell while resolving.
                 if (!_resolving.value) _state.value = s
+            }
+        }
+        viewModelScope.launch {
+            controller.errors.collect { event ->
+                val track = event.track ?: return@collect
+                if (track.source == MediaSource.ONLINE) handleOnlinePlayerError(track, event.errorName)
             }
         }
         viewModelScope.launch {
@@ -78,6 +85,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         lastOnlineRequest = tracks to startIndex
+        fallbackAttemptedForTrackId = null
         resolveJob?.cancel()
         _resolveError.value = null
         OnlinePlaybackDebugLog.clear()
@@ -93,7 +101,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         resolveJob = viewModelScope.launch {
             _resolving.value = true
             OnlinePlaybackDebugLog.add("Resolve start: timeout=25000ms")
-            val resolvedStart = withTimeoutOrNull(25_000) { resolve(start) }
+            val resolvedStart = withTimeoutOrNull(25_000) { resolve(start, preferMp4 = true) }
             if (resolvedStart == null) {
                 _resolving.value = false
                 _resolveError.value = "Couldn’t load this song. Check connection or tap Retry."
@@ -119,15 +127,42 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         play(tracks, index)
     }
 
-    private suspend fun resolve(track: Track): Track? {
+    private suspend fun resolve(track: Track, preferMp4: Boolean): Track? {
         if (track.source != MediaSource.ONLINE) return track
         val id = track.onlineId ?: run {
             OnlinePlaybackDebugLog.add("Resolve failed: track has no onlineId")
             return null
         }
-        OnlinePlaybackDebugLog.add("YoutubeService.getStream('$id', bypassCache=true)")
-        val stream = YoutubeService.getStream(id, bypassCache = true) ?: return null
+        OnlinePlaybackDebugLog.add("YoutubeService.getStream('$id', bypassCache=true, preferMp4=$preferMp4)")
+        val stream = YoutubeService.getStream(id, bypassCache = true, preferMp4 = preferMp4) ?: return null
         return track.copy(uri = Uri.parse(stream.url), streamUserAgent = stream.userAgent)
+    }
+
+    private fun handleOnlinePlayerError(track: Track, errorName: String) {
+        if (fallbackAttemptedForTrackId == track.id) {
+            _resolving.value = false
+            _resolveError.value = "Couldn’t play this stream. Tap Retry or choose another result."
+            OnlinePlaybackDebugLog.add("Fallback already attempted for ${track.id}; surfacing error to UI")
+            return
+        }
+        fallbackAttemptedForTrackId = track.id
+        resolveJob?.cancel()
+        resolveJob = viewModelScope.launch {
+            _resolving.value = true
+            _resolveError.value = null
+            OnlinePlaybackDebugLog.add("Media3 $errorName: trying alternate WebM/Opus stream fallback")
+            val fallback = withTimeoutOrNull(20_000) { resolve(track, preferMp4 = false) }
+            if (fallback == null) {
+                _resolving.value = false
+                _resolveError.value = "Couldn’t load an alternate stream. Tap Retry."
+                OnlinePlaybackDebugLog.add("Alternate stream fallback failed")
+                return@launch
+            }
+            OnlinePlaybackDebugLog.add("Alternate stream resolved: uriHost='${fallback.uri.host}', userAgent='${fallback.streamUserAgent.orEmpty().take(80)}'")
+            controller.playQueue(listOf(fallback), 0)
+            OnlinePlaybackDebugLog.add("Submitted alternate stream to MediaController")
+            _resolving.value = false
+        }
     }
 
     fun togglePlayPause() = controller.togglePlayPause()

@@ -12,10 +12,19 @@ import com.beatdrop.app.data.model.MediaSource
 import com.beatdrop.app.data.model.Track
 import com.beatdrop.app.data.online.OnlinePlaybackDebugLog
 import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
 enum class RepeatMode { OFF, ALL, ONE }
+
+data class PlayerErrorEvent(
+    val track: Track?,
+    val errorCode: Int,
+    val errorName: String,
+    val message: String?,
+)
 
 data class PlaybackState(
     val current: Track? = null,
@@ -42,6 +51,9 @@ class PlayerController(private val context: Context) {
 
     private val _state = MutableStateFlow(PlaybackState())
     val state: StateFlow<PlaybackState> = _state
+
+    private val _errors = MutableSharedFlow<PlayerErrorEvent>(extraBufferCapacity = 8)
+    val errors: SharedFlow<PlayerErrorEvent> = _errors
 
     fun connect() {
         if (controller != null) return
@@ -105,6 +117,7 @@ class PlayerController(private val context: Context) {
                     "Media3 player error: code=${error.errorCode}, name=${error.errorCodeName}, message=${error.message}",
                     error,
                 )
+                _errors.tryEmit(PlayerErrorEvent(track, error.errorCode, error.errorCodeName, error.message))
             }
             syncFromController()
         }
