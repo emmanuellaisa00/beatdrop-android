@@ -109,145 +109,131 @@ fun NowPlayingScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            // ── Top: chevron-down | centered album name | more ──
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 14.dp)
+                    .height(610.dp)
             ) {
-                CircleButton(Icons.Rounded.ExpandMore, "Minimize", 40.dp, 20.dp, onClick = onClose)
-                Text(
-                    track.album.uppercase(),
-                    style = BeatType.CardSub.copy(
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        letterSpacing = 0.24f.em
-                    ),
-                    color = Color(0xD9FFFFFF),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.align(Alignment.Center).padding(horizontal = 56.dp)
+                // iOS-style pull handle
+                Box(
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 10.dp)
+                        .size(width = 58.dp, height = 6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0x66FFFFFF))
+                        .clickable(onClick = onClose)
                 )
-                Box(Modifier.align(Alignment.CenterEnd)) {
-                    CircleButton(Icons.Rounded.MoreHoriz, "More", 40.dp, 18.dp, onClick = shareTrack)
-                }
-            }
 
-            // ── Cover (1:1, radius 20, margin 4/20) ──
-            Box(
-                Modifier
-                    .padding(start = 20.dp, end = 20.dp, top = 4.dp)
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-            ) {
+                // Large artwork/portrait stage
                 CoverArt(
-                    track.artworkUri, track.colorKey,
-                    size = null, corner = 20.dp, glyphSize = 96.dp,
+                    track.artworkUri,
+                    track.colorKey,
+                    size = null,
+                    corner = 0.dp,
+                    glyphSize = 128.dp,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(20.dp))
+                        .fillMaxWidth()
+                        .height(610.dp)
                 )
-            }
 
-            // ── Track meta: title 28/900, artist 14/600@.58, + button 38 ──
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, end = 24.dp, top = 18.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f).padding(end = 16.dp)) {
-                    Text(
-                        track.title,
-                        style = BeatType.LargeTitle.copy(
-                            fontSize = 28.sp,
-                            letterSpacing = (-0.030f).em
-                        ),
-                        color = BeatColors.TextPrimary,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        if (isResolving) "Loading audio… ${track.artist}" else track.artist,
-                        style = BeatType.CardSub.copy(
-                            fontSize = 14.sp,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-                        ),
-                        color = if (isResolving) BeatColors.Accent else Color(0x94FFFFFF),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 5.dp)
-                    )
+                // dark top + red bottom wash, like Apple Music artwork player
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color(0x99000000),
+                                0.42f to Color(0x11000000),
+                                0.70f to Color(0x66150000),
+                                1f to Color(0xE0180708),
+                            )
+                        )
+                )
+
+                // top actions
+                CircleButton(Icons.Rounded.ExpandMore, "Minimize", 40.dp, 20.dp, onClick = onClose, modifier = Modifier.align(Alignment.TopStart).padding(start = 18.dp, top = 18.dp))
+                CircleButton(Icons.Rounded.MoreHoriz, "More", 40.dp, 18.dp, onClick = shareTrack, modifier = Modifier.align(Alignment.TopEnd).padding(end = 18.dp, top = 18.dp))
+
+                // title / artist over artwork bottom
+                Row(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 28.dp, vertical = 26.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            track.title,
+                            style = BeatType.LargeTitle.copy(fontSize = 27.sp, lineHeight = 30.sp, letterSpacing = (-0.025f).em),
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            if (isResolving) "Loading audio… ${track.artist}" else track.artist,
+                            style = BeatType.CardSub.copy(fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                            color = if (isResolving) BeatColors.AccentEnd else Color(0xCCFFFFFF),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                    AddButton(isLiked) { onToggleLike() }
+                    CircleButton(Icons.Rounded.MoreHoriz, "Share", 42.dp, 18.dp, onClick = shareTrack)
                 }
-                AddButton(isLiked) { onToggleLike() }
             }
 
             if (resolveError != null) {
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(start = 24.dp, end = 24.dp, top = 10.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(
-                        resolveError,
-                        style = BeatType.TrackSub,
-                        color = BeatColors.Accent,
-                        modifier = Modifier.weight(1f).padding(end = 12.dp),
-                        maxLines = 2,
-                    )
+                    Text(resolveError, style = BeatType.TrackSub, color = BeatColors.AccentEnd, modifier = Modifier.weight(1f).padding(end = 12.dp), maxLines = 2)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         DebugPill("Copy logs") { clipboard.setText(AnnotatedString(debugLogText.ifBlank { "No online playback logs yet." })) }
                         DebugPill("Retry", onRetry)
                     }
                 }
             } else if (isResolving && debugLogText.isNotBlank()) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(start = 24.dp, end = 24.dp, top = 10.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End) {
                     DebugPill("Copy logs") { clipboard.setText(AnnotatedString(debugLogText)) }
                 }
             }
 
-            // ── Progress (5dp bar, 16dp knob, draggable) ──
             ProgressBar(
                 progress = progress,
                 positionMs = positionMs,
                 durationMs = durationMs,
                 onSeek = onSeek,
-                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp)
+                modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 6.dp)
             )
 
-            // ── Transport: prev | play-ring(74) | next, gap 50 ──
             Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(50.dp, Alignment.CenterHorizontally),
+                Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(56.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CtrlButton(Icons.Rounded.SkipPrevious, "Previous", onClick = onPrevious)
+                CtrlButton(Icons.Rounded.SkipPrevious, "Previous", onClick = onPrevious, size = 54.dp)
                 PlayRing(isPlaying && !isResolving, onTogglePlay)
-                CtrlButton(Icons.Rounded.SkipNext, "Next", onClick = onNext)
+                CtrlButton(Icons.Rounded.SkipNext, "Next", onClick = onNext, size = 54.dp)
             }
 
-            // ── Bottom actions: devices | share ──
+            VolumePill(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
+
             Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 28.dp, end = 28.dp, top = 18.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                Modifier.fillMaxWidth().padding(start = 42.dp, end = 42.dp, top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                BottomAction(Icons.Rounded.KeyboardArrowUp, "Lyrics", onClick = onOpenLyrics)
                 BottomAction(Icons.Rounded.Speaker, "Devices", onClick = { showDevices = true })
                 BottomAction(Icons.AutoMirrored.Rounded.QueueMusic, "Queue", onClick = onOpenQueue)
-                BottomAction(Icons.Rounded.IosShare, "Share", onClick = shareTrack)
             }
 
             Spacer(Modifier.weight(1f))
-
-            // ── Lyrics drawer (84dp, rounded top 28) ──
-            LyricsDrawer(onOpenLyrics)
         }
     }
 
@@ -342,9 +328,16 @@ private fun DebugPill(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun CircleButton(icon: ImageVector, desc: String, box: androidx.compose.ui.unit.Dp, glyph: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+private fun CircleButton(
+    icon: ImageVector,
+    desc: String,
+    box: androidx.compose.ui.unit.Dp,
+    glyph: androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Box(
-        Modifier
+        modifier
             .size(box)
             .clip(CircleShape)
             .background(Color(0x52000000))
@@ -450,10 +443,10 @@ private fun ProgressBar(
 }
 
 @Composable
-private fun CtrlButton(icon: ImageVector, desc: String, onClick: () -> Unit) {
+private fun CtrlButton(icon: ImageVector, desc: String, onClick: () -> Unit, size: androidx.compose.ui.unit.Dp = 44.dp) {
     Box(
         Modifier
-            .size(44.dp)
+            .size(size)
             .clip(CircleShape)
             .clickable(
                 indication = null,
@@ -487,6 +480,39 @@ private fun PlayRing(isPlaying: Boolean, onClick: () -> Unit) {
             tint = Color.White,
             modifier = Modifier.size(28.dp)
         )
+    }
+}
+
+@Composable
+private fun VolumePill(modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .clip(RoundedCornerShape(29.dp))
+            .background(Color(0x33100028))
+            .border(3.dp, Color(0xFF7D2CFF), RoundedCornerShape(29.dp))
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.Rounded.Speaker, "Volume down", tint = Color(0xCCFFFFFF), modifier = Modifier.size(19.dp))
+        Box(
+            Modifier
+                .weight(1f)
+                .height(7.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0x33FFFFFF))
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth(0.70f)
+                    .height(7.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xCCFFFFFF))
+            )
+        }
+        Icon(Icons.Rounded.Speaker, "Volume up", tint = Color(0xE6FFFFFF), modifier = Modifier.size(23.dp))
     }
 }
 
