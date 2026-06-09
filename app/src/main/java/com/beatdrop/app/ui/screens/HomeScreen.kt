@@ -1,52 +1,71 @@
 package com.beatdrop.app.ui.screens
 
-import android.os.Build
+import android.content.Context
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CloudDone
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.beatdrop.app.data.model.Album
 import com.beatdrop.app.data.model.Track
-import com.beatdrop.app.ui.components.AlbumCarousel
+import com.beatdrop.app.ui.components.AddRow
 import com.beatdrop.app.ui.components.CompactHeader
-import com.beatdrop.app.ui.components.FilterPills
 import com.beatdrop.app.ui.components.HeaderIcon
 import com.beatdrop.app.ui.components.Hero
-import com.beatdrop.app.ui.components.QuickGrid
 import com.beatdrop.app.ui.components.ScreenBackground
 import com.beatdrop.app.ui.components.ScreenTheme
 import com.beatdrop.app.ui.components.SectionHeader
-import com.beatdrop.app.ui.components.TrackRow
 import com.beatdrop.app.ui.theme.BeatColors
 import com.beatdrop.app.ui.theme.BeatType
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
+import com.beatdrop.app.ui.theme.PillActiveBrush
 
-@OptIn(ExperimentalPermissionsApi::class)
+/**
+ * Home is the online/cloud Spotify-style entry point. Local/on-device music lives
+ * in Library. Home is still local-first safe: if signed out, it explains why
+ * cloud helps and keeps navigation to Search available.
+ */
 @Composable
 fun HomeScreen(
     onOpenAlbum: (Album) -> Unit,
@@ -58,136 +77,249 @@ fun HomeScreen(
     currentTrackId: String? = null,
     isPlaying: Boolean = false,
     displayName: String? = null,
-    vm: HomeViewModel = viewModel(),
+    isSignedIn: Boolean = false,
+    onSignIn: () -> Unit = {},
 ) {
-    val permName = if (Build.VERSION.SDK_INT >= 33)
-        android.Manifest.permission.READ_MEDIA_AUDIO
-    else android.Manifest.permission.READ_EXTERNAL_STORAGE
-
-    val perm = rememberPermissionState(permName) { granted -> vm.onPermissionResult(granted) }
-    val state by vm.state.collectAsStateWithLifecycle()
-
-    androidx.compose.runtime.LaunchedEffect(perm.status.isGranted) {
-        if (perm.status.isGranted) vm.onPermissionResult(true)
+    val context = LocalContext.current
+    var onboardingDone by remember {
+        mutableStateOf(
+            context.getSharedPreferences("beatdrop_cloud_library", Context.MODE_PRIVATE)
+                .getBoolean("artists_done", false)
+        )
     }
 
     Box(Modifier.fillMaxSize()) {
         ScreenBackground(ScreenTheme.Home)
-
         when {
-            !perm.status.isGranted -> PermissionPrompt { perm.launchPermissionRequest() }
-            state.loading -> com.beatdrop.app.ui.components.SkeletonHomeContent()
-            state.isEmpty -> EmptyLibrary()
-            else -> HomeContent(state, onOpenAlbum, onOpenLiked, onOpenDownloads, onSearch, onAdd, onPlayTracks, currentTrackId, isPlaying, displayName)
+            !isSignedIn -> OnlineHomeGate(onSignIn = onSignIn, onSearch = onSearch)
+            !onboardingDone -> ArtistSeedOnboarding(
+                displayName = displayName,
+                onDone = { artists ->
+                    context.getSharedPreferences("beatdrop_cloud_library", Context.MODE_PRIVATE)
+                        .edit()
+                        .putBoolean("artists_done", true)
+                        .putStringSet("favorite_artists", artists)
+                        .apply()
+                    onboardingDone = true
+                }
+            )
+            else -> OnlineHomeContent(
+                displayName = displayName,
+                onSearch = onSearch,
+                onOpenLiked = onOpenLiked,
+                onOpenDownloads = onOpenDownloads,
+                onAdd = onAdd,
+            )
         }
     }
 }
 
 @Composable
-private fun HomeContent(
-    state: HomeUiState,
-    onOpenAlbum: (Album) -> Unit,
+private fun OnlineHomeGate(onSignIn: () -> Unit, onSearch: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 28.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        AnimatedCloudIcon()
+        Spacer(Modifier.height(20.dp))
+        Text("BeatDrop online", style = BeatType.LargeTitle, color = BeatColors.TextPrimary, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Sign in to sync likes, playlists, recent plays, artist picks, and suggestions. You can still search and play online music without breaking local playback.",
+            style = BeatType.CardSub,
+            color = BeatColors.TextSecondary,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "By continuing you agree to BeatDrop terms and conditions from LAISACORP.",
+            style = BeatType.TrackSub,
+            color = BeatColors.TextMuted,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(24.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            PillButton("Sign in", Icons.Rounded.PersonAdd, onSignIn)
+            PillButton("Search", Icons.Rounded.Search, onSearch)
+        }
+    }
+}
+
+@Composable
+private fun AnimatedCloudIcon() {
+    val transition = rememberInfiniteTransition(label = "homeCloud")
+    val scale by transition.animateFloat(
+        0.96f,
+        1.06f,
+        infiniteRepeatable(tween(950), RepeatMode.Reverse),
+        label = "cloudScale",
+    )
+    Box(
+        Modifier
+            .size(86.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(30.dp))
+            .background(PillActiveBrush)
+            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(30.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Rounded.CloudDone, null, tint = Color.White, modifier = Modifier.size(38.dp))
+    }
+}
+
+@Composable
+private fun PillButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(28.dp))
+            .background(PillActiveBrush)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp))
+        Text(label, style = BeatType.Pill, color = Color.White)
+    }
+}
+
+@Composable
+private fun ArtistSeedOnboarding(displayName: String?, onDone: (Set<String>) -> Unit) {
+    val artists = remember {
+        listOf(
+            "Drake", "Taylor Swift", "Burna Boy", "SZA", "The Weeknd", "Billie Eilish",
+            "Wizkid", "Ariana Grande", "Kendrick Lamar", "Rema", "Tems", "Travis Scott",
+            "Adele", "Bad Bunny", "Post Malone", "Doja Cat", "Future", "Ayra Starr"
+        )
+    }
+    var selected by remember { mutableStateOf(setOf<String>()) }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = 86.dp, start = 20.dp, end = 20.dp, bottom = 190.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    Modifier.size(54.dp).clip(CircleShape).background(PillActiveBrush),
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.Rounded.Star, null, tint = Color.White) }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (displayName.isNullOrBlank()) "Choose your artists" else "Choose artists, $displayName",
+                        style = BeatType.SectionTitle,
+                        color = BeatColors.TextPrimary,
+                    )
+                    Text("Pick at least 3 for better suggestions", style = BeatType.CardSub, color = BeatColors.TextSecondary)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+        items(artists.size) { idx ->
+            val artist = artists[idx]
+            val active = artist in selected
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (active) BeatColors.AccentDim else BeatColors.Surface)
+                    .border(1.dp, if (active) BeatColors.Accent else BeatColors.GlassBorder, RoundedCornerShape(20.dp))
+                    .clickable { selected = if (active) selected - artist else selected + artist }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(BeatColors.SurfaceHover), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.GraphicEq, null, tint = BeatColors.Accent, modifier = Modifier.size(18.dp))
+                    }
+                    Text(artist, style = BeatType.TrackTitle, color = BeatColors.TextPrimary)
+                }
+                Text(if (active) "Selected" else "Add", style = BeatType.Pill, color = if (active) BeatColors.Accent else BeatColors.TextSecondary)
+            }
+        }
+        item {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(if (selected.size >= 3) PillActiveBrush else Brush.linearGradient(listOf(BeatColors.SurfaceHover, BeatColors.SurfaceHover)))
+                    .clickable(enabled = selected.size >= 3) { onDone(selected) }
+                    .padding(vertical = 15.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (selected.size >= 3) "Continue" else "Choose ${3 - selected.size} more",
+                    style = BeatType.Pill,
+                    color = if (selected.size >= 3) Color.White else BeatColors.TextSecondary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnlineHomeContent(
+    displayName: String?,
+    onSearch: () -> Unit,
     onOpenLiked: () -> Unit,
     onOpenDownloads: () -> Unit,
-    onSearch: () -> Unit,
     onAdd: () -> Unit,
-    onPlayTracks: (List<Track>, Int) -> Unit,
-    currentTrackId: String?,
-    isPlaying: Boolean,
-    displayName: String?,
 ) {
-    var filter by rememberSaveable { mutableIntStateOf(0) }
-    val filters = remember { listOf("All", "Music", "Podcasts") }
-    val albumLookup = remember(state.shelves) {
-        state.shelves.flatMap { it.items }.associateBy { it.id }
+    val context = LocalContext.current
+    val favoriteArtists = remember {
+        context.getSharedPreferences("beatdrop_cloud_library", Context.MODE_PRIVATE)
+            .getStringSet("favorite_artists", emptySet())
+            .orEmpty()
+            .toList()
+            .sorted()
     }
     val listState = rememberLazyListState()
-
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 56.dp, bottom = 180.dp)
+            contentPadding = PaddingValues(top = 56.dp, bottom = 200.dp),
         ) {
             item {
                 Hero(
-                    greetingPlain = if (displayName.isNullOrBlank()) "Good evening" else "Good evening,",
+                    greetingPlain = if (displayName.isNullOrBlank()) "Online" else "Online,",
                     greetingBold = displayName?.takeIf { it.isNotBlank() },
-                    titlePlain = "Good",
-                    titleAccent = "vibes",
+                    titlePlain = "For",
+                    titleAccent = "you",
+                    avatarText = displayName?.take(1),
                     onSearch = onSearch,
                     onAdd = onAdd,
                 )
             }
-            item { FilterPills(filters, filter) { filter = it } }
-            item { Spacer(Modifier.height(18.dp)) }
+            item { SectionHeader("Start listening", "") }
             item {
-                QuickGrid(state.quick) { q ->
-                    if (q.albumId == "Liked Songs") onOpenLiked()
-                    else if (q.albumId == "Downloads") onOpenDownloads()
-                    else albumLookup[q.albumId]?.let(onOpenAlbum)
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AddRow(Icons.Rounded.Search, "Search online music", "Songs, albums, playlists and artists") { onSearch() }
+                    AddRow(Icons.Rounded.CloudDone, "Cloud likes", "Synced liked songs when signed in") { onOpenLiked() }
+                    AddRow(Icons.Rounded.LibraryMusic, "Downloads", "Offline music stays available on this device") { onOpenDownloads() }
                 }
             }
-            if (state.tracks.isNotEmpty()) {
-                item { SectionHeader("Songs", "Shuffle") }
-                itemsIndexed(state.tracks.take(25), key = { _, t -> t.id }) { i, track ->
-                    TrackRow(
-                        index = i + 1,
-                        track = track,
-                        isPlaying = track.id == currentTrackId && isPlaying,
-                        onClick = { onPlayTracks(state.tracks, i) },
-                    )
-                }
-            }
-            item { SectionHeader("Explore your catalogue", "") }
-            state.shelves.forEach { shelf ->
-                item { SectionHeader(shelf.title, shelf.seeAllLabel) }
-                item { AlbumCarousel(shelf.items, onOpenAlbum) }
+            item { SectionHeader("Artist seeds", "") }
+            item {
+                Text(
+                    if (favoriteArtists.isEmpty()) {
+                        "Choose artists to unlock better online suggestions."
+                    } else {
+                        favoriteArtists.joinToString("  •  ")
+                    },
+                    style = BeatType.CardSub.copy(fontWeight = FontWeight.SemiBold),
+                    color = BeatColors.TextSecondary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                )
             }
         }
-
         CompactHeader(
             title = "Home",
             listState = listState,
-            icons = listOf(
-                HeaderIcon(Icons.Rounded.Search, "Search", onSearch),
-                HeaderIcon(Icons.Rounded.Add, "Add", onAdd),
-            ),
+            icons = listOf(HeaderIcon(Icons.Rounded.Search, "Search", onSearch)),
             modifier = Modifier.align(Alignment.TopCenter),
-        )
-    }
-}
-
-@Composable
-private fun PermissionPrompt(onGrant: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().padding(40.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Let BeatDrop play your music", style = BeatType.SectionTitle, color = BeatColors.TextPrimary, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "Grant access to your audio library to play music saved on this device.",
-            style = BeatType.CardSub, color = BeatColors.TextSecondary, textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(22.dp))
-        androidx.compose.material3.Button(onClick = onGrant) { Text("Grant access") }
-    }
-}
-
-@Composable
-private fun EmptyLibrary() {
-    Column(
-        Modifier.fillMaxSize().padding(40.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("No music found", style = BeatType.SectionTitle, color = BeatColors.TextPrimary)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Add audio files to your device and they’ll appear here.",
-            style = BeatType.CardSub, color = BeatColors.TextSecondary, textAlign = TextAlign.Center
         )
     }
 }

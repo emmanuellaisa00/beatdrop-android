@@ -35,8 +35,8 @@ object BeatColors {
     val Surface get() = if (BeatThemeController.isLight) Color(0xFFFFFFFF) else Color(0x12FFFFFF)
     val SurfaceHover get() = if (BeatThemeController.isLight) Color(0xFFF0EEE8) else Color(0x1CFFFFFF)
     val GlassBorder get() = if (BeatThemeController.isLight) Color(0x16000000) else Color(0x17FFFFFF)
-    val DockBg get() = if (BeatThemeController.isLight) Color(0xF2FFFFFF) else Color(0xCC0E0C12)
-    val MiniBg get() = if (BeatThemeController.isLight) Color(0xFFFFFFFF) else Color(0xE0140C12)
+    val DockBg get() = if (BeatThemeController.isLight) Color(0xFFFFFFFF) else Color(0xFF0E0C12)
+    val MiniBg get() = if (BeatThemeController.isLight) Color(0xFFFFFFFF) else Color(0xFF140C12)
 }
 
 /** Album cover gradient palette c-1 .. c-8. */

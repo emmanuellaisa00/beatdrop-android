@@ -432,6 +432,8 @@ private fun TabRoot(
             currentTrackId = pb.current?.id,
             isPlaying = pb.isPlaying,
             displayName = displayName,
+            isSignedIn = isSignedIn,
+            onSignIn = onSignIn,
         )
         Tab.Search -> SearchScreen(
             currentTrackId = pb.current?.id,

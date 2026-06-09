@@ -41,10 +41,12 @@ fun Hero(
     titlePlain: String,
     titleAccent: String,
     showActions: Boolean = true,
+    avatarText: String? = null,
     onSearch: () -> Unit = {},
     onAdd: () -> Unit = {},
 ) {
     val onAvatar = LocalOpenProfile.current
+    val avatar = avatarText?.takeIf { it.isNotBlank() } ?: greetingBold?.takeIf { it.isNotBlank() }?.firstOrNull()?.uppercase() ?: "B"
     Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 4.dp)) {
         Row(
             Modifier.fillMaxWidth().padding(bottom = 22.dp),
@@ -58,7 +60,7 @@ fun Hero(
                     .clickableNoRipple(onAvatar),
                 contentAlignment = Alignment.Center
             ) {
-                Text("A", style = BeatType.CardTitle, color = Color.White)
+                Text(avatar, style = BeatType.CardTitle, color = Color.White)
             }
             Box(Modifier.padding(start = 12.dp)) {
                 Text(
