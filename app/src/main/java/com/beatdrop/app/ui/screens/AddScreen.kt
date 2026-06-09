@@ -1,6 +1,9 @@
 package com.beatdrop.app.ui.screens
 
 import android.app.Application
+import android.graphics.BitmapFactory
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +52,10 @@ import com.beatdrop.app.ui.components.ScreenTheme
 import com.beatdrop.app.ui.components.SectionHeader
 import com.beatdrop.app.ui.theme.BeatColors
 import com.beatdrop.app.ui.theme.BeatType
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.common.HybridBinarizer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -60,11 +67,12 @@ class AddViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() { _playlists.value = repo.userPlaylists() }
 
-    fun createPlaylist(name: String) {
+    fun createPlaylist(name: String, onCreated: (UserPlaylist) -> Unit = {}) {
         viewModelScope.launch {
             val playlist = repo.createPlaylist(name.ifBlank { "New Playlist" })
             repo.pushPlaylistMetadata(playlist)
             _playlists.value = repo.userPlaylists()
+            onCreated(playlist)
         }
     }
 }
@@ -87,7 +95,21 @@ fun AddScreen(
     var showBlendDialog by remember { mutableStateOf(false) }
     var showPasteDialog by remember { mutableStateOf(false) }
     var showScanDialog by remember { mutableStateOf(false) }
+    var scanMessage by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    val qrImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val decoded = runCatching { decodeQrFromUri(context, uri) }.getOrNull()
+        if (decoded.isNullOrBlank()) {
+            scanMessage = "No QR/code found in that image. Try another image or enter the code manually."
+        } else {
+            scanMessage = "Scanned: $decoded"
+            showScanDialog = false
+            runCatching {
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(decoded)))
+            }.onFailure { onSearch() }
+        }
+    }
 
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.refresh() }
 
@@ -167,7 +189,17 @@ fun AddScreen(
         BlendDialog(
             onDismiss = { showBlendDialog = false },
             onCreate = { friend ->
-                vm.createPlaylist(if (friend.isBlank()) "Blend Mix" else "Blend with ${friend.trim()}")
+                val name = if (friend.isBlank()) "Blend Mix" else "Blend with ${friend.trim()}"
+                vm.createPlaylist(name) { playlist ->
+                    val invite = "Join my BeatDrop Blend: ${playlist.name}\nbeatdrop://playlist/${playlist.id}"
+                    runCatching {
+                        context.startActivity(android.content.Intent.createChooser(
+                            android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(android.content.Intent.EXTRA_TEXT, invite)
+                            }, "Share Blend invite"))
+                    }
+                }
                 showBlendDialog = false
             }
         )
@@ -175,16 +207,19 @@ fun AddScreen(
 
     if (showScanDialog) {
         ScanCodeDialog(
+            scanMessage = scanMessage,
             onDismiss = { showScanDialog = false },
+            onPickImage = { qrImagePicker.launch("image/*") },
             onOpenCamera = {
-                runCatching {
-                    context.startActivity(android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE))
-                }
-                showScanDialog = false
+                runCatching { context.startActivity(android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)) }
             },
             onUseCode = { code ->
                 showScanDialog = false
-                if (code.isNotBlank()) onSearch() else onImportFromDevice()
+                if (code.isNotBlank()) {
+                    runCatching {
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(code.trim())))
+                    }.onFailure { onSearch() }
+                } else onImportFromDevice()
             },
         )
     }
@@ -241,7 +276,13 @@ private fun BlendDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
 }
 
 @Composable
-private fun ScanCodeDialog(onDismiss: () -> Unit, onOpenCamera: () -> Unit, onUseCode: (String) -> Unit) {
+private fun ScanCodeDialog(
+    scanMessage: String?,
+    onDismiss: () -> Unit,
+    onPickImage: () -> Unit,
+    onOpenCamera: () -> Unit,
+    onUseCode: (String) -> Unit,
+) {
     var code by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -249,7 +290,8 @@ private fun ScanCodeDialog(onDismiss: () -> Unit, onOpenCamera: () -> Unit, onUs
         title = { Text("Scan or enter code", color = BeatColors.TextPrimary, style = BeatType.SectionTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Open your camera to scan a shared BeatDrop/QR code, or paste a code/link manually.", color = BeatColors.TextSecondary, style = BeatType.CardSub)
+                Text("Pick a QR image, open camera, or paste a BeatDrop/URL code manually.", color = BeatColors.TextSecondary, style = BeatType.CardSub)
+                if (scanMessage != null) Text(scanMessage, color = BeatColors.Accent, style = BeatType.CardSub)
                 OutlinedTextField(
                     value = code,
                     onValueChange = { code = it },
@@ -261,6 +303,7 @@ private fun ScanCodeDialog(onDismiss: () -> Unit, onOpenCamera: () -> Unit, onUs
         confirmButton = { TextButton(onClick = { onUseCode(code) }) { Text(if (code.isBlank()) "Import" else "Use", color = BeatColors.Accent) } },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onPickImage) { Text("QR image", color = BeatColors.TextSecondary) }
                 TextButton(onClick = onOpenCamera) { Text("Camera", color = BeatColors.TextSecondary) }
                 TextButton(onClick = onDismiss) { Text("Cancel", color = BeatColors.TextSecondary) }
             }
@@ -332,4 +375,15 @@ private fun CreatePlaylistDialog(onDismiss: () -> Unit, onCreate: (String) -> Un
             TextButton(onClick = onDismiss) { Text("Cancel", color = BeatColors.TextSecondary) }
         }
     )
+}
+
+private fun decodeQrFromUri(context: android.content.Context, uri: android.net.Uri): String? {
+    val bitmap = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: return null
+    val width = bitmap.width
+    val height = bitmap.height
+    val pixels = IntArray(width * height)
+    bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+    val source = RGBLuminanceSource(width, height, pixels)
+    val binary = BinaryBitmap(HybridBinarizer(source))
+    return MultiFormatReader().decode(binary).text
 }

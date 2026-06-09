@@ -21,8 +21,8 @@ android {
         applicationId = "com.beatdrop.app"
         minSdk = 23
         targetSdk = 33
-        versionCode = 11
-        versionName = "1.0.10"
+        versionCode = 12
+        versionName = "1.0.11"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -119,6 +119,9 @@ dependencies {
 
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+
+    // QR/code decoding for BeatDrop Scan flow
+    implementation("com.google.zxing:core:3.5.3")
 
     // ── Cloud backend models / local-first REST facades ──
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
