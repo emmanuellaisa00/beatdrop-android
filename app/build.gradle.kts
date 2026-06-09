@@ -21,8 +21,8 @@ android {
         applicationId = "com.beatdrop.app"
         minSdk = 23
         targetSdk = 33
-        versionCode = 13
-        versionName = "1.0.12"
+        versionCode = 14
+        versionName = "1.0.13"
         vectorDrawables { useSupportLibrary = true }
     }
 

@@ -40,6 +40,7 @@ import com.beatdrop.app.ui.components.MiniPlayer
 import com.beatdrop.app.ui.components.TrackActions
 import com.beatdrop.app.ui.components.TrackContextSheet
 import com.beatdrop.app.ui.components.AddToPlaylistSheet
+import com.beatdrop.app.ui.nav.BeatDropDeepLinks
 import com.beatdrop.app.ui.nav.Destination
 import com.beatdrop.app.ui.nav.Dock
 import com.beatdrop.app.ui.nav.Navigator
@@ -74,6 +75,11 @@ fun BeatDropApp() {
     var showNowPlaying by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
+
+    val pendingPlaylistId = BeatDropDeepLinks.pendingPlaylistId
+    androidx.compose.runtime.LaunchedEffect(pendingPlaylistId) {
+        BeatDropDeepLinks.consumePlaylist()?.let { nav.push(Destination.PlaylistDetail(it)) }
+    }
 
     val playback: PlaybackViewModel = viewModel()
     val likes: LikesViewModel = viewModel()

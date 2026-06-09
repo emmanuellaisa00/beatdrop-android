@@ -38,6 +38,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="beatdrop" android:host="auth" />
             </intent-filter>
+            <!-- BeatDrop share/deep links (Blend / playlist invites) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="beatdrop" android:host="playlist" />
+            </intent-filter>
         </activity>
 
         <!-- Media3 playback service: background audio, notification, lock-screen controls -->
