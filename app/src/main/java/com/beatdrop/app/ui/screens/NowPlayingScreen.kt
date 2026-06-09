@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -89,6 +90,16 @@ fun NowPlayingScreen(
 ) {
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs) else 0f
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val shareTrack = {
+        runCatching {
+            context.startActivity(android.content.Intent.createChooser(
+                android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(android.content.Intent.EXTRA_TEXT, "${track.title} — ${track.artist}")
+                }, "Share song"))
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         NowPlayingBackground()
@@ -117,7 +128,7 @@ fun NowPlayingScreen(
                     modifier = Modifier.align(Alignment.Center).padding(horizontal = 56.dp)
                 )
                 Box(Modifier.align(Alignment.CenterEnd)) {
-                    CircleButton(Icons.Rounded.MoreHoriz, "More", 40.dp, 18.dp) {}
+                    CircleButton(Icons.Rounded.MoreHoriz, "More", 40.dp, 18.dp, onClick = shareTrack)
                 }
             }
 
@@ -228,9 +239,9 @@ fun NowPlayingScreen(
                     .padding(start = 28.dp, end = 28.dp, top = 18.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                BottomAction(Icons.Rounded.Speaker, "Devices")
+                BottomAction(Icons.Rounded.Speaker, "Devices", onClick = onOpenQueue)
                 BottomAction(Icons.AutoMirrored.Rounded.QueueMusic, "Queue", onClick = onOpenQueue)
-                BottomAction(Icons.Rounded.IosShare, "Share")
+                BottomAction(Icons.Rounded.IosShare, "Share", onClick = shareTrack)
             }
 
             Spacer(Modifier.weight(1f))

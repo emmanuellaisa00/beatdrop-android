@@ -111,9 +111,15 @@ fun AddScreen(
                     AddRow(Icons.Rounded.Add, "Create a Playlist", "Start fresh with an empty playlist") {
                         showCreateDialog = true
                     }
-                    AddRow(Icons.Rounded.Group, "Blend with a friend", "Make a shared playlist that updates daily") {}
-                    AddRow(Icons.Rounded.QrCodeScanner, "Scan a Code", "Use your camera to import a track") {}
-                    AddRow(Icons.Rounded.Link, "Paste a Link", "YouTube, SoundCloud, or any URL") {}
+                    AddRow(Icons.Rounded.Group, "Blend with a friend", "Make a shared playlist that updates daily") {
+                        showCreateDialog = true
+                    }
+                    AddRow(Icons.Rounded.QrCodeScanner, "Scan a Code", "Use your camera to import a track") {
+                        onImportFromDevice()
+                    }
+                    AddRow(Icons.Rounded.Link, "Paste a Link", "YouTube, SoundCloud, or any URL") {
+                        onSearch()
+                    }
                     AddRow(Icons.Rounded.Upload, "Import from Device", "Add music files from your phone") {
                         onImportFromDevice()
                     }

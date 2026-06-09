@@ -101,7 +101,7 @@ fun LyricsScreen(
     // Auto-scroll so the active line sits ~1/3 down the viewport.
     LaunchedEffect(activeIndex) {
         if (activeIndex >= 0 && lines.isNotEmpty()) {
-            runCatching { listState.animateScrollToItem(activeIndex.coerceAtLeast(0), scrollOffset = -240) }
+            runCatching { listState.animateScrollToItem(activeIndex.coerceAtLeast(0), scrollOffset = -360) }
         }
     }
 
@@ -171,7 +171,7 @@ fun LyricsScreen(
                 else -> LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(start = 28.dp, end = 28.dp, top = 8.dp, bottom = 148.dp)
+                    contentPadding = PaddingValues(start = 28.dp, end = 28.dp, top = 140.dp, bottom = 220.dp)
                 ) {
                     itemsIndexed(lines) { i, line ->
                         LyricLineRow(
@@ -251,15 +251,16 @@ private enum class LineState { Passed, Active, Upcoming }
 private fun LyricLineRow(text: String, state: LineState, onClick: () -> Unit) {
     val color = when (state) {
         LineState.Active -> Color.White
-        LineState.Passed -> Color(0x26FFFFFF)
-        LineState.Upcoming -> Color(0x47FFFFFF)
+        LineState.Passed -> Color(0x38FFFFFF)
+        LineState.Upcoming -> Color(0x66FFFFFF)
     }
+    val size = if (state == LineState.Active) 34.sp else 28.sp
     Text(
         text,
         style = BeatType.LargeTitle.copy(
-            fontSize = 26.sp,
-            letterSpacing = (-0.024f).em,
-            lineHeight = (26f * 1.18f).sp,
+            fontSize = size,
+            letterSpacing = (-0.026f).em,
+            lineHeight = if (state == LineState.Active) 40.sp else 34.sp,
         ),
         color = color,
         modifier = Modifier

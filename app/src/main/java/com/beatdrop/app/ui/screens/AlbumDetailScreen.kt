@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -101,6 +102,7 @@ fun AlbumDetailScreen(
 ) {
     LaunchedEffect(albumId) { vm.load(albumId) }
     val album by vm.album.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val listState = rememberLazyListState()
     BackHandler(onBack = onBack)
 
@@ -135,6 +137,18 @@ fun AlbumDetailScreen(
                             }
                         },
                         onPlay = { if (a.tracks.isNotEmpty()) onPlayTracks(a.tracks, 0) },
+                        onDownload = {
+                            a.tracks.forEach { com.beatdrop.app.data.online.DownloadManager.enqueue(it, context) }
+                        },
+                        onShare = {
+                            runCatching {
+                                context.startActivity(android.content.Intent.createChooser(
+                                    android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(android.content.Intent.EXTRA_TEXT, "${a.title} — ${a.artist}")
+                                    }, "Share album"))
+                            }
+                        },
                     )
                 }
                 item { Spacer(Modifier.height(8.dp)) }
@@ -248,6 +262,8 @@ private fun AlbumActions(
     onLike: () -> Unit,
     onShuffle: () -> Unit,
     onPlay: () -> Unit,
+    onDownload: () -> Unit,
+    onShare: () -> Unit,
 ) {
     Row(
         Modifier
@@ -260,8 +276,8 @@ private fun AlbumActions(
             if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
             "Like", tint = if (liked) BeatColors.Accent else Color(0xE0FFFFFF), onClick = onLike
         )
-        ActionIcon(Icons.Rounded.Download, "Download") {}
-        ActionIcon(Icons.Rounded.Share, "Share") {}
+        ActionIcon(Icons.Rounded.Download, "Download", onClick = onDownload)
+        ActionIcon(Icons.Rounded.Share, "Share", onClick = onShare)
         ActionIcon(Icons.Rounded.Shuffle, "Shuffle", onClick = onShuffle)
         Spacer(Modifier.weight(1f))
         // 58dp gradient play-big
