@@ -1,6 +1,8 @@
 package com.beatdrop.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -31,6 +34,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -49,6 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import com.beatdrop.app.data.cloud.AuthState
 import com.beatdrop.app.ui.theme.BeatColors
 import com.beatdrop.app.ui.theme.BeatThemeController
@@ -79,6 +85,17 @@ fun AuthScreen(
     var username by remember { mutableStateOf("") }
 
     val error = (state as? AuthState.Error)?.message
+    val passwordError = mode == AuthMode.SignIn && error?.contains("password", ignoreCase = true) == true
+    val identifierError = mode == AuthMode.SignIn && error?.contains("registered", ignoreCase = true) == true
+    val shake = remember { Animatable(0f) }
+    LaunchedEffect(error) {
+        if (passwordError) {
+            shake.snapTo(0f)
+            listOf(-14f, 14f, -10f, 10f, -5f, 5f, 0f).forEach { x ->
+                shake.animateTo(x, tween(42))
+            }
+        }
+    }
 
     Box(
         Modifier
@@ -148,10 +165,23 @@ fun AuthScreen(
                 AuthField(username, { username = it }, "Username")
                 Spacer(Modifier.height(12.dp))
             }
-            AuthField(email, { email = it }, "Email", keyboard = KeyboardType.Email)
+            AuthField(
+                email,
+                { email = it },
+                if (mode == AuthMode.SignIn) "Email or username" else "Email",
+                keyboard = if (mode == AuthMode.SignIn) KeyboardType.Text else KeyboardType.Email,
+                isError = identifierError,
+            )
             if (mode != AuthMode.Reset) {
                 Spacer(Modifier.height(12.dp))
-                AuthField(password, { password = it }, "Password", isPassword = true)
+                AuthField(
+                    password,
+                    { password = it },
+                    "Password",
+                    isPassword = true,
+                    isError = passwordError,
+                    modifier = Modifier.offset { IntOffset(shake.value.roundToInt(), 0) }
+                )
             }
 
             if (error != null) {
@@ -217,15 +247,17 @@ private fun AuthField(
     placeholder: String,
     isPassword: Boolean = false,
     keyboard: KeyboardType = KeyboardType.Text,
+    isError: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
     var visible by remember { mutableStateOf(false) }
     Box(
-        Modifier
+        modifier
             .fillMaxWidth()
             .height(52.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0x14FFFFFF))
-            .border(1.dp, Color(0x17FFFFFF), RoundedCornerShape(14.dp))
+            .border(1.dp, if (isError) Color(0xFFFF3B30) else Color(0x17FFFFFF), RoundedCornerShape(14.dp))
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -236,7 +268,7 @@ private fun AuthField(
             value = value,
             onValueChange = onChange,
             singleLine = true,
-            textStyle = BeatType.CardSub.copy(fontSize = 14.sp, color = Color.White),
+            textStyle = BeatType.CardSub.copy(fontSize = 14.sp, color = if (isError) Color(0xFFFF3B30) else Color.White),
             cursorBrush = SolidColor(BeatColors.Accent),
             visualTransformation = if (isPassword && !visible) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = ImeAction.Next),
